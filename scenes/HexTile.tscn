@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://dax1tile00001"]
+
+[ext_resource type="Script" path="res://scripts/hex_tile.gd" id="1_hex_tile"]
+
+[node name="HexTile" type="Polygon2D"]
+script = ExtResource("1_hex_tile")
+
+[node name="Area2D" type="Area2D" parent="."]
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Area2D"]
