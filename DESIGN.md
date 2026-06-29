@@ -166,4 +166,4 @@ never feel that, retune flood speed or move the tile until they do.
 - [x] Level laid out
 - [x] Implemented in Godot
 - [ ] Playtested and tuned
-- [ ] Build → test → run loop validated
+- [x] Build → test → run loop validated

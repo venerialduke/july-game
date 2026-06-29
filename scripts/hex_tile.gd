@@ -1,5 +1,5 @@
 class_name HexTile
-extends Polygon2D
+extends Node2D
 ## A single hex tile on the grid. Stores its axial coordinate, tile type,
 ## and manages its own color. Emits tile_clicked when tapped/clicked.
 
@@ -17,6 +17,7 @@ var tile_type: TileType = TileType.NORMAL
 var highlighted: bool = false
 var selected: bool = false
 var _vertices: PackedVector2Array
+var _fill_color: Color = Color(0.85, 0.85, 0.80)
 
 @onready var _area: Area2D = $Area2D
 @onready var _collision: CollisionPolygon2D = $Area2D/CollisionPolygon2D
@@ -26,9 +27,7 @@ func initialize(p_coord: Vector2i, hex_size: float, p_type: TileType) -> void:
 	coord = p_coord
 	tile_type = p_type
 	_vertices = HexUtils.get_hex_vertices(hex_size)
-	polygon = _vertices
 	position = HexUtils.axial_to_pixel(p_coord, hex_size)
-	# Match the collision shape to the visual polygon.
 	_collision.polygon = _vertices
 	_update_color()
 
@@ -64,6 +63,8 @@ func set_selected(on: bool) -> void:
 func _draw() -> void:
 	if _vertices.is_empty():
 		return
+	# Draw the filled hex.
+	draw_colored_polygon(_vertices, _fill_color)
 	# Draw highlight/selection overlay.
 	if selected:
 		draw_colored_polygon(_vertices, SELECTED_COLOR)
@@ -79,10 +80,11 @@ func _draw() -> void:
 func _update_color() -> void:
 	match tile_type:
 		TileType.NORMAL:
-			color = Color(0.85, 0.85, 0.80)
+			_fill_color = Color(0.85, 0.85, 0.80)
 		TileType.OBJECTIVE:
-			color = Color(1.0, 0.84, 0.0)
+			_fill_color = Color(1.0, 0.84, 0.0)
 		TileType.FLOODED:
-			color = Color(0.25, 0.45, 0.80)
+			_fill_color = Color(0.25, 0.45, 0.80)
 		TileType.FLOOD_SOURCE:
-			color = Color(0.12, 0.22, 0.55)
+			_fill_color = Color(0.12, 0.22, 0.55)
+	queue_redraw()

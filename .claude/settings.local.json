@@ -2,7 +2,16 @@
   "permissions": {
     "allow": [
       "Bash(git -C \"C:/GodotProjects/july-game\" log --oneline -5)",
-      "Bash(find \"C:/GodotProjects/july-game\" -name \"*.tscn\" -o -name \"*.gd\" -o -name \"*.tres\" 2>/dev/null | head -30)"
+      "Bash(find \"C:/GodotProjects/july-game\" -name \"*.tscn\" -o -name \"*.gd\" -o -name \"*.tres\" 2>/dev/null | head -30)",
+      "Bash(adb logcat -d -s godot 2>/dev/null | tail -30)",
+      "Bash(\"C:/Users/monte/AppData/Local/Android/Sdk/platform-tools/adb.exe\" logcat -d -s godot | tail -50)",
+      "Bash(\"C:/Users/monte/AppData/Local/Android/Sdk/platform-tools/adb.exe\" devices)",
+      "Bash(\"C:/Users/monte/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s 192.168.4.26:46495 logcat -d | grep -i -E \"godot|ERROR|SCRIPT\" | tail -50)",
+      "Bash(\"C:/Users/monte/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s 192.168.4.26:46495 logcat -c)",
+      "Bash(\"C:/Users/monte/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s 192.168.4.26:46495 logcat -d | grep -i godot | tail -60)",
+      "Bash(\"C:/Users/monte/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s 192.168.4.26:46495 logcat -d | grep -i -E \"godot|SCRIPT ERROR|ERROR.*godot|GDScript\" | tail -30)",
+      "Bash(\"C:/Users/monte/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s 192.168.4.26:46495 logcat -d --pid=32708 | grep -v VRI | grep -v mWNT | grep -v SurfaceFlinger | head -40)",
+      "Bash(\"C:/Users/monte/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s 192.168.4.26:46495 logcat -d --pid=32708 | grep -v VRI | grep -v mWNT | grep -v SurfaceFlinger | tail -20)"
     ]
   }
 }
