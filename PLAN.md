@@ -78,7 +78,11 @@ Main (Node2D)
 > interaction loop and need tap-selection, which movement input establishes).
 > `tick_len` raised 5s → 15s per playtest feedback.
 
-### M5 — Leader + stamina movement (Claude Code builds, developer tests)
+### M5 — Leader + stamina movement ✅ DONE
+Verified by developer 2026-07-02 ("working, feels ok"). Playtest
+adjustments applied: sprint is press-and-hold (not toggle), stamina regens
+only while the Leader is stopped, and a radial tick wheel in the HUD shows
+time creeping toward the next tick.
 - One Leader on the map, spawned at `LevelData.PLAYER_START`.
 - Tap a tile → Dijkstra path over passable tiles; Leader walks it in real
   time (this is a real-time game, not turn-based).
@@ -93,17 +97,24 @@ Main (Node2D)
   bridge closes ahead of you, the Leader halts (`leader_blocked`).
 - Headless tests for pathfinding, timing, stamina, bridge close mid-walk.
 
-### M6 — Freeze + Reverse tools (both actors)
-- Tap a linker to select it; HUD buttons freeze/unfreeze and reverse.
-- Sim API already exists (`set_frozen`, `reverse`); this is selection + UI.
+### M6 — Freeze + Reverse tools 🔨 BUILT, awaiting playtest
+- Tap a linker's tile to select (white ring); tap again to deselect; tap
+  elsewhere to deselect and move. HUD Freeze/Unfreeze + Reverse buttons
+  appear while selected. No range limit on tools yet — open design knob.
 
-### M7 — Units: collect + follow (Claude Code builds, developer tests)
-- Neutral Units placed on the map; Leader walks onto/adjacent to collect.
-- Collected Units trail the Leader (follow the path with spacing).
+### M7 — Units: collect + follow 🔨 BUILT, awaiting playtest
+- Neutral units (gray) on the map; Leader walks onto one to collect it.
+- Party trails the Leader snake-style in collection order.
 
-### M8 — Proximity auto-combat (Claude Code builds, developer tests)
-- Dumb AI enemies on the map. Combat is automatic by adjacency.
-- `effective_type` affects combat (terrain bonuses/penalties).
+### M8 — Proximity auto-combat 🔨 BUILT, awaiting playtest
+- Stationary dumb enemies (red diamonds). Continuous automatic combat on
+  adjacency: all adjacent party members attack; the enemy strikes the
+  first adjacent target, units before Leader (units tank).
+- Terrain reads through `effective_type` per frame: an attacker standing
+  on a BOOST tile deals 2x damage (`boost_attack_mult`).
+- Knobs: leader 100hp/12dps, unit 40hp/8dps, enemy 60hp/10dps.
+- Leader death: `leader_died` fires once, movement halts, HUD shows
+  DEFEATED. No restart flow yet (relaunch the scene).
 
 ### M9 — Android deploy + 90-second playtest
 - Export to phone, play for ~90 seconds.

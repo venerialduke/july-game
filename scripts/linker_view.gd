@@ -11,8 +11,11 @@ const TYPE_COLORS: Dictionary[LinkerData.Type, Color] = {
 }
 const FROZEN_COLOR := Color(0.65, 0.85, 1.0)
 
+const SELECT_COLOR := Color(1.0, 1.0, 1.0, 0.9)
+
 var linker: LinkerData
 var hex_size: float = 48.0
+var selected: bool = false   ## Display flag set by Main; not game state.
 ## Displayed angle per link edge (radians), lerping toward the true angle.
 var _display_angles: Array[float] = []
 
@@ -53,8 +56,10 @@ func _draw() -> void:
 		var side := Vector2.from_angle(angle + PI / 2.0) * hex_size * 0.16
 		draw_colored_polygon(PackedVector2Array([tip, back + side, back - side]), color)
 
-	# Hub. A pale ring marks a frozen linker.
+	# Hub. A pale ring marks a frozen linker; a white ring marks selection.
 	draw_circle(Vector2.ZERO, hex_size * 0.30, Color(0.12, 0.13, 0.16))
 	draw_circle(Vector2.ZERO, hex_size * 0.22, color)
 	if linker.frozen:
 		draw_arc(Vector2.ZERO, hex_size * 0.38, 0.0, TAU, 32, FROZEN_COLOR, 4.0)
+	if selected:
+		draw_arc(Vector2.ZERO, hex_size * 0.48, 0.0, TAU, 32, SELECT_COLOR, 3.0)

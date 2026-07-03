@@ -31,6 +31,14 @@ signal leader_moved(from: Vector2i, to: Vector2i)
 signal leader_blocked(at: Vector2i)
 ## The Leader's path changed (new destination, cleared, or blocked).
 signal leader_path_changed
+## A neutral unit joined the party (Leader walked onto its tile).
+signal unit_collected(id: int)
+## A party unit died in combat and was removed.
+signal unit_died(id: int)
+## An enemy died in combat and was removed.
+signal enemy_died(id: int)
+## The Leader's hp reached zero. Fired once.
+signal leader_died
 
 ## The terrain a TRANSMUTE beam temporarily applies to host + neighbor.
 ## Tuning knob — see NEW_DESIGN.md section 15.
@@ -41,11 +49,23 @@ var step_time_base: float = 1.5        ## Seconds to enter a move_cost-1 tile, s
 var fast_multiplier: float = 2.0       ## Fast move is this many times quicker.
 var stamina_max: float = 100.0
 var stamina_drain_per_s: float = 20.0  ## Drains only while actually fast-moving.
-var stamina_regen_per_s: float = 8.0   ## Regens only while fast mode is off.
+var stamina_regen_per_s: float = 8.0   ## Regens only while the Leader is stopped.
+
+# Combat tuning knobs. All damage is per second, continuous, adjacency-based.
+var leader_max_hp: float = 100.0
+var leader_power: float = 12.0
+var unit_max_hp: float = 40.0
+var unit_power: float = 8.0
+var enemy_max_hp: float = 60.0
+var enemy_power: float = 10.0
+var boost_attack_mult: float = 2.0     ## Attacker standing on a BOOST tile.
 
 var tiles: Dictionary[Vector2i, HexTileData] = {}
 var linkers: Dictionary[int, LinkerData] = {}
 var leader: LeaderData = null
+var units: Dictionary[int, UnitData] = {}
+var enemies: Dictionary[int, EnemyData] = {}
+var party: Array[int] = []             ## Collected unit ids, in trail order.
 var tick_count: int = 0
 var tick_len: float = 15.0   ## Seconds per tick. Primary tuning knob.
                              ## (5s felt too short in playtest 1.)
@@ -57,6 +77,9 @@ var _open_tiles: Dictionary[Vector2i, Dictionary] = {}
 ## Vector4i edge key (normalized) -> {LinkerData.Type: count}.
 var _open_edges: Dictionary[Vector4i, Dictionary] = {}
 var _next_linker_id: int = 0
+var _next_unit_id: int = 0
+var _next_enemy_id: int = 0
+var _leader_death_emitted: bool = false
 
 
 func _process(delta: float) -> void:
@@ -71,6 +94,12 @@ func advance(dt: float) -> void:
 		accum -= tick_len
 		_tick()
 	_advance_leader(dt)
+	_advance_combat(dt)
+
+
+## Fraction [0, 1) of the way to the next global tick. For the HUD wheel.
+func tick_progress() -> float:
+	return clampf(accum / tick_len, 0.0, 1.0)
 
 
 ## Advance exactly n ticks, ignoring wall time. For tests and debugging.
@@ -84,11 +113,17 @@ func reset() -> void:
 	tiles.clear()
 	linkers.clear()
 	leader = null
+	units.clear()
+	enemies.clear()
+	party.clear()
 	tick_count = 0
 	accum = 0.0
 	_open_tiles.clear()
 	_open_edges.clear()
 	_next_linker_id = 0
+	_next_unit_id = 0
+	_next_enemy_id = 0
+	_leader_death_emitted = false
 
 
 func add_tile(coord: Vector2i, terrain: Terrain.Type = Terrain.Type.PLAINS) -> HexTileData:
@@ -102,6 +137,20 @@ func add_linker(linker: LinkerData) -> int:
 	_next_linker_id += 1
 	linkers[linker.id] = linker
 	return linker.id
+
+
+func add_unit(coord: Vector2i) -> int:
+	var id: int = _next_unit_id
+	_next_unit_id += 1
+	units[id] = UnitData.new(coord, unit_max_hp)
+	return id
+
+
+func add_enemy(coord: Vector2i) -> int:
+	var id: int = _next_enemy_id
+	_next_enemy_id += 1
+	enemies[id] = EnemyData.new(coord, enemy_max_hp)
+	return id
 
 
 ## Call after populating tiles/linkers so initial beams emit their
@@ -149,6 +198,14 @@ func open_coords(effect: LinkerData.Type) -> Array[Vector2i]:
 	return result
 
 
+## The linker hosted on `coord`, or null. v0 assumes at most one per tile.
+func linker_at(coord: Vector2i) -> LinkerData:
+	for linker: LinkerData in linkers.values():
+		if linker.host_coord == coord:
+			return linker
+	return null
+
+
 ## The tile a linker's link edge currently points at.
 func beam_target(linker: LinkerData, edge: int) -> Vector2i:
 	var phys: int = posmod(edge + linker.orientation, 6)
@@ -158,7 +215,8 @@ func beam_target(linker: LinkerData, edge: int) -> Vector2i:
 # --- Leader movement -------------------------------------------------------
 
 func spawn_leader(coord: Vector2i) -> LeaderData:
-	leader = LeaderData.new(coord, stamina_max)
+	leader = LeaderData.new(coord, stamina_max, leader_max_hp)
+	_leader_death_emitted = false
 	return leader
 
 
@@ -171,7 +229,7 @@ func set_fast(enabled: bool) -> void:
 ## Pathfind to `target` and start walking. Returns false if unreachable.
 ## Mid-walk retargeting keeps the edge currently being crossed.
 func request_move(target: Vector2i) -> bool:
-	if leader == null or not tiles.has(target):
+	if leader == null or leader.hp <= 0.0 or not tiles.has(target):
 		return false
 	var mid_edge: bool = leader.is_moving() and leader.edge_progress > 0.0
 	var start: Vector2i = leader.path[0] if mid_edge else leader.coord
@@ -258,7 +316,7 @@ func _traversal_time(from: Vector2i, to: Vector2i, fast: bool) -> float:
 
 
 func _advance_leader(dt: float) -> void:
-	if leader == null:
+	if leader == null or leader.hp <= 0.0:
 		return
 	var remaining: float = dt
 	while remaining > 0.0 and leader.is_moving():
@@ -282,18 +340,102 @@ func _advance_leader(dt: float) -> void:
 			leader.coord = next
 			leader.path.pop_front()
 			leader.edge_progress = 0.0
+			_shift_party(from)
+			_collect_units_at(next)
 			leader_moved.emit(from, next)
 		else:
 			if fast:
 				_drain_stamina(remaining)
 			leader.edge_progress += remaining / t
 			remaining = 0.0
-	if not leader.fast_mode:
-		leader.stamina = minf(leader.stamina + stamina_regen_per_s * dt, stamina_max)
+	# Stamina regens only while stopped: `remaining` is exactly the portion
+	# of dt the Leader spent standing still.
+	if not leader.is_moving() and remaining > 0.0:
+		leader.stamina = minf(leader.stamina + stamina_regen_per_s * remaining, stamina_max)
+
+
+## Party units trail the Leader like a snake: each takes its predecessor's
+## previous tile, the head takes the tile the Leader just left.
+func _shift_party(leader_from: Vector2i) -> void:
+	var prev: Vector2i = leader_from
+	for id: int in party:
+		var unit: UnitData = units[id]
+		var tmp: Vector2i = unit.coord
+		unit.coord = prev
+		prev = tmp
+
+
+func _collect_units_at(coord: Vector2i) -> void:
+	for id: int in units:
+		var unit: UnitData = units[id]
+		if not unit.collected and unit.coord == coord:
+			unit.collected = true
+			party.append(id)
+			unit_collected.emit(id)
 
 
 func _drain_stamina(seconds: float) -> void:
 	leader.stamina = maxf(leader.stamina - stamina_drain_per_s * seconds, 0.0)
+
+
+# --- Combat (automatic, proximity-based, continuous) -----------------------
+
+## Every adjacent party member (units and Leader) attacks each enemy; the
+## enemy strikes back at the first adjacent target, units before Leader
+## (units tank). Attack power reads terrain through effective_type — a
+## BOOST tile under an attacker multiplies their damage. No caching.
+func _advance_combat(dt: float) -> void:
+	if leader == null:
+		return
+	for enemy: EnemyData in enemies.values():
+		var attack_power: float = 0.0
+		var target: Variant = null   # UnitData or LeaderData
+		for id: int in party:
+			var unit: UnitData = units[id]
+			if HexUtils.axial_distance(unit.coord, enemy.coord) <= 1:
+				attack_power += unit_power * _attack_mult(unit.coord)
+				if target == null:
+					target = unit
+		if leader.hp > 0.0 and HexUtils.axial_distance(leader.coord, enemy.coord) <= 1:
+			attack_power += leader_power * _attack_mult(leader.coord)
+			if target == null:
+				target = leader
+		if target == null:
+			continue   # nobody engaged this enemy
+		enemy.hp -= attack_power * dt
+		target.hp -= enemy_power * dt
+	_resolve_deaths()
+
+
+func _attack_mult(coord: Vector2i) -> float:
+	return boost_attack_mult if effective_type(coord) == Terrain.Type.BOOST else 1.0
+
+
+func _resolve_deaths() -> void:
+	var dead_enemies: Array[int] = []
+	for id: int in enemies:
+		if enemies[id].hp <= 0.0:
+			dead_enemies.append(id)
+	for id: int in dead_enemies:
+		enemies.erase(id)
+		enemy_died.emit(id)
+
+	var dead_units: Array[int] = []
+	for id: int in party:
+		if units[id].hp <= 0.0:
+			dead_units.append(id)
+	for id: int in dead_units:
+		party.erase(id)
+		units.erase(id)
+		unit_died.emit(id)
+
+	if leader.hp <= 0.0 and not _leader_death_emitted:
+		_leader_death_emitted = true
+		leader.hp = 0.0
+		leader.path.clear()
+		leader.edge_progress = 0.0
+		leader_path_changed.emit()
+		leader_died.emit()
 
 
 # --- Tools (act on spin state; never touch what the beam does) ------------

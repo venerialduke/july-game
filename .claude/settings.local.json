@@ -18,7 +18,9 @@
       "PowerShell(git add *)",
       "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --import 2>&1 | Select-String -Pattern \"ERROR|SCRIPT ERROR|Parse\" | Select-Object -First 10; Write-Output \"IMPORT EXIT: $LASTEXITCODE\")",
       "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_map_sim.gd | Select-Object -Last 2; Write-Output \"CORE EXIT: $LASTEXITCODE\"; & C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_movement.gd; Write-Output \"MOVE EXIT: $LASTEXITCODE\")",
-      "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --quit-after 30; Write-Output \"SCENE EXIT: $LASTEXITCODE\")"
+      "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --quit-after 30; Write-Output \"SCENE EXIT: $LASTEXITCODE\")",
+      "PowerShell(Out-Null *)",
+      "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_movement.gd | Select-Object -Last 2; Write-Output \"MOVE EXIT: $LASTEXITCODE\")"
     ]
   }
 }

@@ -14,7 +14,7 @@ func run_tests() -> void:
 	test_transmute_opens_mountain()
 	test_fast_move_drains_stamina()
 	test_zero_stamina_reverts_to_slow()
-	test_stamina_regen_only_when_sprint_off()
+	test_stamina_regen_only_when_stopped()
 	test_mid_walk_retarget_keeps_current_edge()
 
 
@@ -169,17 +169,20 @@ func test_zero_stamina_reverts_to_slow() -> void:
 	sim.free()
 
 
-func test_stamina_regen_only_when_sprint_off() -> void:
-	begin("stamina regens at 8/s with sprint off, not while sprint is held")
-	var sim: Node = make_disc_sim(2)
+func test_stamina_regen_only_when_stopped() -> void:
+	begin("stamina regens at 8/s only while the leader is stopped")
+	var sim: Node = make_disc_sim(3)
 	sim.spawn_leader(Vector2i.ZERO)
 	sim.leader.stamina = 40.0
-	sim.set_fast(true)
-	sim.advance(2.0)   # idle but sprint held: no drain, no regen
-	check_approx(sim.leader.stamina, 40.0, "sprint held while idle: stamina flat")
-	sim.set_fast(false)
-	sim.advance(2.0)
-	check_approx(sim.leader.stamina, 56.0, "regens 8/s once sprint released")
+	sim.advance(2.0)   # standing still: regen
+	check_approx(sim.leader.stamina, 56.0, "regens 8/s while stopped")
+	sim.request_move(Vector2i(2, 0))
+	sim.advance(1.5)   # walking slow: no drain, but no regen either
+	check_approx(sim.leader.stamina, 56.0, "no regen while moving, even slow")
+	sim.advance(1.0)   # still mid-second-edge at t=2.5
+	check_approx(sim.leader.stamina, 56.0, "no regen while mid-edge")
+	sim.advance(1.0)   # arrives at 3.0s total; regen covers the 0.5s idle tail
+	check_approx(sim.leader.stamina, 60.0, "regen resumes the instant movement stops")
 	sim.advance(60.0)
 	check_approx(sim.leader.stamina, sim.stamina_max, "regen clamps at max")
 	sim.free()

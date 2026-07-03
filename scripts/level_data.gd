@@ -10,6 +10,17 @@ class_name LevelData
 const MAP_RADIUS: int = 4
 const PLAYER_START: Vector2i = Vector2i(0, 2)
 
+## Neutral units to collect, placed so gathering them tours the map.
+const UNIT_SPAWNS: Array[Vector2i] = [
+	Vector2i(-1, 2), Vector2i(2, 1), Vector2i(-2, 0), Vector2i(1, -2),
+]
+
+## Enemies guard interesting spots: across the lake, and near the north
+## forest. Stationary dumb AI in v0.
+const ENEMY_SPAWNS: Array[Vector2i] = [
+	Vector2i(4, -2), Vector2i(-1, -2),
+]
+
 ## Terrain overrides; every other coord in the disc is PLAINS.
 const TERRAIN_OVERRIDES: Dictionary[Vector2i, Terrain.Type] = {
 	# East lake — crossable only via the shore CONNECTOR's beam.
@@ -49,3 +60,8 @@ static func apply(sim: Node) -> void:
 	sim.add_linker(LinkerData.new(Vector2i(0, 0), LinkerData.Type.TRANSMUTE, 3, 1))
 	# North TRANSMUTE: faster spinner near the forest patch.
 	sim.add_linker(LinkerData.new(Vector2i(0, -3), LinkerData.Type.TRANSMUTE, 2, 1))
+
+	for coord: Vector2i in UNIT_SPAWNS:
+		sim.add_unit(coord)
+	for coord: Vector2i in ENEMY_SPAWNS:
+		sim.add_enemy(coord)
