@@ -1,22 +1,23 @@
-[gd_scene format=3 uid="uid://dax1main00001"]
+[gd_scene format=3]
 
-[ext_resource type="Script" uid="uid://bm4tucxkgcvo8" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="PackedScene" uid="uid://dax1grid00001" path="res://scenes/HexGrid.tscn" id="2_hex_grid"]
-[ext_resource type="PackedScene" uid="uid://dax1play00001" path="res://scenes/Player.tscn" id="3_player"]
-[ext_resource type="PackedScene" uid="uid://dax1hud000001" path="res://scenes/HUD.tscn" id="4_hud"]
-[ext_resource type="Script" uid="uid://dih1ltb387ayw" path="res://scripts/game_state.gd" id="5_game_state"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/hex_grid_view.gd" id="2_grid"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="3_hud"]
 
-[node name="Main" type="Node2D" unique_id=676589795]
+[node name="Main" type="Node2D"]
 script = ExtResource("1_main")
 
-[node name="HexGrid" parent="." unique_id=1631774755 instance=ExtResource("2_hex_grid")]
-position = Vector2(360, 640)
+[node name="HexGridView" type="Node2D" parent="."]
+script = ExtResource("2_grid")
 
-[node name="Player" parent="HexGrid" unique_id=598399762 instance=ExtResource("3_player")]
+[node name="LinkerViews" type="Node2D" parent="."]
 
-[node name="GameState" type="Node" parent="." unique_id=567317644]
-script = ExtResource("5_game_state")
+[node name="UILayer" type="CanvasLayer" parent="."]
 
-[node name="UILayer" type="CanvasLayer" parent="." unique_id=1240993820]
-
-[node name="HUD" parent="UILayer" unique_id=1385601170 instance=ExtResource("4_hud")]
+[node name="HUD" type="MarginContainer" parent="UILayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_hud")

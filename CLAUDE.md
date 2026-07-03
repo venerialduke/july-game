@@ -66,42 +66,61 @@ Convention (adjust as the project grows):
 - Write small, focused commits with clear messages.
 - Use `--force-with-lease` (never bare `--force`) if a force-push is ever needed.
 
-## Architecture
+## Architecture (v0 linker prototype)
+
+Design in `NEW_DESIGN.md`, plan in `PLAN.md`. Central-sim pattern: the
+`MapSim` autoload (`scripts/map_sim.gd`) owns ALL game state as plain data
+and advances it on a global tick clock. Visual nodes are dumb readers that
+query the sim and react to its signals; they hold no authoritative state and
+never compute hex geometry themselves.
 
 Scene tree:
 
 ```
-Main (Node2D)                      — scripts/main.gd (glue + turn flow)
- ├── HexGrid (Node2D)              — scripts/hex_grid.gd (tile dictionary, flood spread)
- │    ├── HexTile × N (Polygon2D)  — scripts/hex_tile.gd (coord, type, color, click)
- │    └── Player (Node2D)          — scripts/player.gd (position + draw)
- ├── GameState (Node)              — scripts/game_state.gd (state machine, clocks)
+Main (Node2D)                      — scripts/main.gd (glue: load level, spawn views)
+ ├── HexGridView (Node2D)          — scripts/hex_grid_view.gd (_draw()s all tiles,
+ │                                    beam rings, connector bridges from sim queries)
+ ├── LinkerViews (Node2D)
+ │    └── LinkerView × N           — scripts/linker_view.gd (hub + arrow, rotation lerp)
  └── UILayer (CanvasLayer)
-      └── HUD (MarginContainer)    — scripts/hud.gd (labels, buttons, messages)
+      └── HUD (MarginContainer)    — scripts/hud.gd (tick counter, later tool buttons)
 ```
 
-Key data-only scripts (no nodes):
-- `scripts/hex_utils.gd` — pure hex math (registered via `class_name`, not autoload)
-- `scripts/level_data.gd` — hardcoded level layout (tile type overrides, player start)
+Autoload + data scripts:
+- `scripts/map_sim.gd` — `MapSim` autoload. Tick loop, beam resolution,
+  open-set diffing, `effective_type()`, freeze/reverse API. No `class_name`
+  (would collide with the autoload name).
+- `scripts/terrain.gd` — `Terrain` enum + movement costs.
+- `scripts/hex_tile_data.gd` — `HexTileData` (NOT `TileData`: that name is a
+  Godot built-in).
+- `scripts/linker_data.gd` — `LinkerData` plain data + `Type` enum.
+- `scripts/level_data.gd` — hardcoded v0 map (terrain overrides, linkers).
+- `scripts/hex_utils.gd` — pure hex math (`class_name`, not autoload).
 
-Signal flow: HexTile → HexGrid → Main → GameState → Main → HUD.
-All signals connected in code (`_ready()`), none wired in the editor.
+Sim interface (the ONLY way downstream systems read linker state):
+`link_opened`/`link_closed`/`edge_opened`/`edge_closed`/`linker_stepped`/
+`tick_advanced` signals; `effective_type(coord)`, `is_connector_open(a, b)`,
+`open_coords(effect)`, `open_connector_edges()`, `beam_target(linker, edge)`.
+Never cache `effective_type` results — linker overrides are transient.
+
+## Testing
+
+Headless deterministic tests in `tests/test_map_sim.gd`. Claude Code runs
+them directly (no developer needed):
+
+```
+& C:\Godot\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_map_sim.gd
+```
+
+Run `--import` first if new `class_name` scripts were added. Tests
+instantiate `map_sim.gd` via `load().new()`, not the autoload. Booting the
+main scene headless (`--headless --quit-after 30`) smoke-tests `_ready()`.
 
 ## Notes
 
-- HUD uses a full-screen `MarginContainer` on a `CanvasLayer`. All non-button
-  controls have `mouse_filter = IGNORE` so clicks pass through to the game
-  layer. This is set recursively in `hud.gd._ready()`.
-- `HexUtils` uses `class_name` (not autoload) because it has only static
-  functions and doesn't extend Node.
+- HUD is a full-screen `MarginContainer` on a `CanvasLayer`; non-interactive
+  controls use `mouse_filter = IGNORE` so touches reach the game layer.
 - Desktop window override is 480×854 to fit on screen during development;
   the game viewport is 720×1280 (portrait, 9:16).
-
-### Playtest notes (to address)
-
-- Flood spreads too aggressively — "Fast" is essentially unusable because it
-  drowns objectives immediately. Needs tuning (flood speed, level layout, or
-  starting distances).
-- Flooded objectives currently trigger instant game over. Design intent may be
-  better served by making drowned objectives simply uncollectable (lost but
-  not an immediate loss), so the player can still attempt the remaining ones.
+- Old flood-game files are parked in `old/` (has a `.gdignore`); delete once
+  no longer useful as reference.

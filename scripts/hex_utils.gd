@@ -1,7 +1,8 @@
 class_name HexUtils
 ## Pure hex-math utility functions. No nodes, no state.
 ## Uses axial coordinates (q, r) with flat-top hexagons.
-## Registered as an autoload so any script can call HexUtils.function_name().
+## Registered via class_name (not autoload) so any script can call
+## HexUtils.function_name() statically.
 
 ## The six axial direction vectors for flat-top hex neighbors.
 const DIRECTIONS: Array[Vector2i] = [
