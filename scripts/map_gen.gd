@@ -21,8 +21,10 @@ const KNOBS: Dictionary[String, int] = {
 	"linker_count": 10,
 	"linker_spacing": 3,    # min hex distance between linkers
 	"linker_period_max": 3,
-	"unit_count": 6,
+	"unit_count": 12,
 	"unit_min_dist": 2,     # from spawn
+	"unit_near_count": 3,   # guaranteed within unit_near_max_dist of spawn
+	"unit_near_max_dist": 4,
 	"drifter_count": 3,
 	"brute_count": 3,
 	"hunter_count": 3,
@@ -126,11 +128,16 @@ static func _place_linkers(sim: Node, rng: RandomNumberGenerator, knobs: Diction
 		placed.append(coord)
 
 
+## Units: a few guaranteed near spawn (early party-building before first
+## hunter contact), the rest scattered as exploration rewards.
 static func _place_units(sim: Node, rng: RandomNumberGenerator, knobs: Dictionary,
 		reachable: Array[Vector2i]) -> void:
-	var spots: Array[Vector2i] = _pick_spots(sim, rng, reachable,
-			knobs["unit_count"], knobs["unit_min_dist"])
-	for coord: Vector2i in spots:
+	var near: Array[Vector2i] = _pick_spots(sim, rng, reachable,
+			knobs["unit_near_count"], knobs["unit_min_dist"],
+			knobs["unit_near_max_dist"])
+	var far: Array[Vector2i] = _pick_spots(sim, rng, reachable,
+			knobs["unit_count"] - near.size(), knobs["unit_min_dist"], 9999, near)
+	for coord: Vector2i in near + far:
 		sim.add_unit(coord)
 
 
@@ -149,10 +156,12 @@ static func _place_enemies(sim: Node, rng: RandomNumberGenerator, knobs: Diction
 		sim.add_enemy(spots[i], roster[i])
 
 
-## Pick `count` distinct reachable tiles at least `min_dist` from spawn,
-## avoiding linker host tiles so nothing spawns visually stacked.
+## Pick `count` distinct reachable tiles between `min_dist` and `max_dist`
+## from spawn, avoiding linker hosts and `exclude`d coords so nothing
+## spawns visually stacked.
 static func _pick_spots(sim: Node, rng: RandomNumberGenerator,
-		reachable: Array[Vector2i], count: int, min_dist: int) -> Array[Vector2i]:
+		reachable: Array[Vector2i], count: int, min_dist: int,
+		max_dist: int = 9999, exclude: Array[Vector2i] = []) -> Array[Vector2i]:
 	var hosts: Dictionary[Vector2i, bool] = {}
 	for linker: LinkerData in sim.linkers.values():
 		hosts[linker.host_coord] = true
@@ -160,9 +169,10 @@ static func _pick_spots(sim: Node, rng: RandomNumberGenerator,
 	for coord: Vector2i in _shuffled(reachable, rng):
 		if spots.size() >= count:
 			break
-		if HexUtils.axial_distance(coord, PLAYER_START) < min_dist:
+		var dist: int = HexUtils.axial_distance(coord, PLAYER_START)
+		if dist < min_dist or dist > max_dist:
 			continue
-		if hosts.has(coord) or spots.has(coord):
+		if hosts.has(coord) or spots.has(coord) or exclude.has(coord):
 			continue
 		spots.append(coord)
 	return spots

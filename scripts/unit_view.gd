@@ -4,10 +4,11 @@ extends Node2D
 ## eases toward the unit's tile so trail-following reads smoothly.
 ## Main frees this view when the unit dies.
 
-const NEUTRAL_COLOR := Color(0.62, 0.62, 0.62)
+const NEUTRAL_COLOR := Color(0.85, 0.85, 0.88)
 const PARTY_COLOR := Color(0.55, 0.9, 0.55)
 const OUTLINE_COLOR := Color(0.12, 0.13, 0.16)
 const HP_COLOR := Color(0.4, 1.0, 0.4)
+const PICKUP_RING_COLOR := Color(1.0, 1.0, 1.0, 0.7)
 
 var id: int = -1
 var unit: UnitData
@@ -38,6 +39,13 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	if not unit.collected:
+		# Collectible beacon: slow-breathing ring so neutral units read as
+		# pickups against any terrain.
+		var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() / 400.0)
+		var ring := PICKUP_RING_COLOR
+		ring.a = 0.25 + 0.45 * pulse
+		draw_arc(Vector2.ZERO, hex_size * (0.28 + 0.06 * pulse), 0.0, TAU, 24, ring, 3.0)
 	draw_circle(Vector2.ZERO, hex_size * 0.19, OUTLINE_COLOR)
 	draw_circle(Vector2.ZERO, hex_size * 0.14,
 			PARTY_COLOR if unit.collected else NEUTRAL_COLOR)

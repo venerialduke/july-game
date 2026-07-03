@@ -74,6 +74,13 @@ func test_map_structure() -> void:
 			"full hex disc tile count")
 	check_eq(sim.linkers.size(), MapGen.KNOBS["linker_count"], "all linkers placed")
 	check_eq(sim.units.size(), MapGen.KNOBS["unit_count"], "all units placed")
+	var near_units: int = 0
+	for unit: UnitData in sim.units.values():
+		if HexUtils.axial_distance(unit.coord, MapGen.PLAYER_START) \
+				<= MapGen.KNOBS["unit_near_max_dist"]:
+			near_units += 1
+	check(near_units >= MapGen.KNOBS["unit_near_count"],
+			"at least %d units near spawn (got %d)" % [MapGen.KNOBS["unit_near_count"], near_units])
 	var expected_enemies: int = MapGen.KNOBS["drifter_count"] \
 			+ MapGen.KNOBS["brute_count"] + MapGen.KNOBS["hunter_count"]
 	check_eq(sim.enemies.size(), expected_enemies, "full enemy roster placed")
