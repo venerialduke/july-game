@@ -122,7 +122,10 @@ control will be needed again for the Android build (M9).
 - Leader death: `leader_died` fires once, movement halts, HUD shows
   DEFEATED. No restart flow yet (relaunch the scene).
 
-### M9 — Android deploy + 90-second playtest 🔨 READY FOR EXPORT
+### M9 — Android deploy + 90-second playtest ✅ DEPLOYED
+Verified on device 2026-07-02: export, install, and play all working
+smoothly. The validation verdict (is the linker loop fun?) drives what
+comes next — see the closing section below.
 File-side prep done:
 - Touch sprint: a hold-to-sprint button appears when a touchscreen is
   detected (drives the same "sprint" action the keyboard uses).
