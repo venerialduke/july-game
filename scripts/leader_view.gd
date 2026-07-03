@@ -6,6 +6,8 @@ extends Node2D
 const BODY_COLOR := Color(0.95, 0.96, 1.0)
 const SPRINT_COLOR := Color(1.0, 0.58, 0.2)
 const OUTLINE_COLOR := Color(0.12, 0.13, 0.16)
+const HP_COLOR := Color(0.4, 1.0, 0.4)
+const HP_LOW_COLOR := Color(1.0, 0.35, 0.3)
 
 var hex_size: float = 48.0
 
@@ -37,3 +39,8 @@ func _draw() -> void:
 	var sprinting: bool = leader.fast_mode and leader.stamina > 0.0 and leader.is_moving()
 	draw_circle(Vector2.ZERO, hex_size * 0.27, OUTLINE_COLOR)
 	draw_circle(Vector2.ZERO, hex_size * 0.20, SPRINT_COLOR if sprinting else BODY_COLOR)
+	if leader.hp < leader.max_hp:
+		var fraction: float = leader.hp / leader.max_hp
+		var color: Color = HP_COLOR if fraction > 0.35 else HP_LOW_COLOR
+		draw_arc(Vector2.ZERO, hex_size * 0.34, -PI / 2.0,
+				-PI / 2.0 + TAU * fraction, 24, color, 4.0)
