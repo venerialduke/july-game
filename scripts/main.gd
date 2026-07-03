@@ -71,11 +71,16 @@ func _process(_delta: float) -> void:
 		hud.set_selected_linker(engaged)
 
 
-## Tap/click routing: every tap is a move order. Touch arrives as emulated
-## mouse input (project default), so one handler covers desktop and Android.
+## Tap/click routing: every tap is a move order; after defeat, any tap
+## restarts. Touch arrives as emulated mouse input (project default), so
+## one handler covers desktop and Android.
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton \
 			and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if MapSim.leader != null and MapSim.leader.hp <= 0.0:
+			# _ready() resets MapSim and rebuilds every view from scratch.
+			get_tree().reload_current_scene()
+			return
 		var coord: Vector2i = HexUtils.pixel_to_axial(to_local(event.position), HEX_SIZE)
 		if MapSim.tiles.has(coord):
 			MapSim.request_move(coord)

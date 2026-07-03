@@ -122,9 +122,24 @@ control will be needed again for the Android build (M9).
 - Leader death: `leader_died` fires once, movement halts, HUD shows
   DEFEATED. No restart flow yet (relaunch the scene).
 
-### M9 — Android deploy + 90-second playtest
-- Export to phone, play for ~90 seconds.
-- Answer the validation question: is the linker loop fun?
+### M9 — Android deploy + 90-second playtest 🔨 READY FOR EXPORT
+File-side prep done:
+- Touch sprint: a hold-to-sprint button appears when a touchscreen is
+  detected (drives the same "sprint" action the keyboard uses).
+- Tap anywhere after DEFEATED reloads the scene (clean restart: Main's
+  `_ready` resets MapSim and rebuilds all views).
+- View→MapSim signal connections converted from lambdas to named methods
+  so scene reloads can't leave stale connections on the autoload.
+- `export_presets.cfg` from the flood-game deploy still valid (Android,
+  arm64-v8a, signed debug, exports all resources). Gitignored, local.
+
+Developer steps (per LESSONS.md):
+1. `adb connect <phone>` (pair was done in session 1).
+2. Project → Export → Export Project → APK (NOT one-click deploy: it
+   passes `--remote-debug localhost`, which breaks over wireless).
+3. `adb install "July Game.apk"`, play ~90 seconds.
+
+Then answer the validation question: is the linker loop fun?
 - If yes: proceed to extraction/session layer.
 - If no: tune `tick_len`, linker density, effect magnitude before adding scope.
 

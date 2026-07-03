@@ -24,8 +24,12 @@ func _ready() -> void:
 	_build_defeat_banner()
 
 	MapSim.tick_advanced.connect(_update_tick_label)
-	MapSim.leader_died.connect(func() -> void: _defeat_label.visible = true)
+	MapSim.leader_died.connect(_on_leader_died)
 	_update_tick_label(MapSim.tick_count)
+
+
+func _on_leader_died() -> void:
+	_defeat_label.visible = true
 
 
 func _process(_delta: float) -> void:
@@ -101,17 +105,27 @@ func _build_bottom_rows() -> void:
 	_stamina_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	stamina_row.add_child(_stamina_bar)
 
-	var sprint_hint := Label.new()
-	sprint_hint.text = "hold SPACE/SHIFT\nto sprint"
-	sprint_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sprint_hint.add_theme_font_size_override("font_size", 16)
-	sprint_hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
-	stamina_row.add_child(sprint_hint)
+	if DisplayServer.is_touchscreen_available():
+		# No keyboard on Android: hold-to-sprint button that drives the
+		# same "sprint" input action Main polls.
+		var sprint_button := _make_button("SPRINT")
+		sprint_button.custom_minimum_size = Vector2(170, 80)
+		sprint_button.button_down.connect(func() -> void: Input.action_press("sprint"))
+		sprint_button.button_up.connect(func() -> void: Input.action_release("sprint"))
+		stamina_row.add_child(sprint_button)
+	else:
+		var sprint_hint := Label.new()
+		sprint_hint.text = "hold SPACE/SHIFT\nto sprint"
+		sprint_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sprint_hint.add_theme_font_size_override("font_size", 16)
+		sprint_hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
+		stamina_row.add_child(sprint_hint)
 
 
 func _build_defeat_banner() -> void:
 	_defeat_label = Label.new()
-	_defeat_label.text = "DEFEATED"
+	_defeat_label.text = "DEFEATED\ntap to restart"
+	_defeat_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_defeat_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_defeat_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_defeat_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER

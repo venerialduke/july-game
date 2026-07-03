@@ -20,11 +20,26 @@ var hex_size: float = 48.0
 
 
 func _ready() -> void:
-	MapSim.tick_advanced.connect(func(_t: int) -> void: queue_redraw())
-	MapSim.link_opened.connect(func(_c: Vector2i, _e: int) -> void: queue_redraw())
-	MapSim.link_closed.connect(func(_c: Vector2i, _e: int) -> void: queue_redraw())
+	# Named methods, not lambdas: method callables auto-disconnect when this
+	# node is freed, so scene reloads (tap-to-restart) leave no stale
+	# connections on the MapSim autoload.
+	MapSim.tick_advanced.connect(_on_tick_advanced)
+	MapSim.link_opened.connect(_on_link_changed)
+	MapSim.link_closed.connect(_on_link_changed)
 	MapSim.leader_path_changed.connect(queue_redraw)
-	MapSim.leader_moved.connect(func(_f: Vector2i, _t: Vector2i) -> void: queue_redraw())
+	MapSim.leader_moved.connect(_on_leader_moved)
+
+
+func _on_tick_advanced(_tick: int) -> void:
+	queue_redraw()
+
+
+func _on_link_changed(_coord: Vector2i, _effect: int) -> void:
+	queue_redraw()
+
+
+func _on_leader_moved(_from: Vector2i, _to: Vector2i) -> void:
+	queue_redraw()
 
 
 func _draw() -> void:
