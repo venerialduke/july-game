@@ -15,7 +15,10 @@
       "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_map_sim.gd; Write-Output \"EXIT: $LASTEXITCODE\")",
       "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --import 2>&1 | Select-String -Pattern \"ERROR|WARNING|SCRIPT\" | Select-Object -First 20; Write-Output \"IMPORT EXIT: $LASTEXITCODE\")",
       "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_map_sim.gd | Select-Object -Last 3; Write-Output \"TESTS EXIT: $LASTEXITCODE\"; Write-Output \"--- booting main scene headless ---\"; & C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --quit-after 30; Write-Output \"SCENE EXIT: $LASTEXITCODE\")",
-      "PowerShell(git add *)"
+      "PowerShell(git add *)",
+      "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --import 2>&1 | Select-String -Pattern \"ERROR|SCRIPT ERROR|Parse\" | Select-Object -First 10; Write-Output \"IMPORT EXIT: $LASTEXITCODE\")",
+      "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_map_sim.gd | Select-Object -Last 2; Write-Output \"CORE EXIT: $LASTEXITCODE\"; & C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_movement.gd; Write-Output \"MOVE EXIT: $LASTEXITCODE\")",
+      "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --quit-after 30; Write-Output \"SCENE EXIT: $LASTEXITCODE\")"
     ]
   }
 }

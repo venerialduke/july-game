@@ -14,6 +14,7 @@ const TERRAIN_COLORS: Dictionary[Terrain.Type, Color] = {
 const OUTLINE_COLOR := Color(0.10, 0.11, 0.14)
 const BEAM_TILE_COLOR := Color(1.0, 1.0, 1.0, 0.85)
 const BRIDGE_COLOR := Color(0.35, 0.9, 0.95, 0.75)
+const PATH_COLOR := Color(1.0, 1.0, 1.0, 0.6)
 
 var hex_size: float = 48.0
 
@@ -22,6 +23,8 @@ func _ready() -> void:
 	MapSim.tick_advanced.connect(func(_t: int) -> void: queue_redraw())
 	MapSim.link_opened.connect(func(_c: Vector2i, _e: int) -> void: queue_redraw())
 	MapSim.link_closed.connect(func(_c: Vector2i, _e: int) -> void: queue_redraw())
+	MapSim.leader_path_changed.connect(queue_redraw)
+	MapSim.leader_moved.connect(func(_f: Vector2i, _t: Vector2i) -> void: queue_redraw())
 
 
 func _draw() -> void:
@@ -54,3 +57,14 @@ func _draw() -> void:
 		var a: Vector2 = HexUtils.axial_to_pixel(Vector2i(edge.x, edge.y), hex_size)
 		var b: Vector2 = HexUtils.axial_to_pixel(Vector2i(edge.z, edge.w), hex_size)
 		draw_line(a, b, BRIDGE_COLOR, 10.0)
+
+	# Leader path: dots along the route, ringed dot on the destination.
+	var leader: LeaderData = MapSim.leader
+	if leader != null and leader.is_moving():
+		for i: int in range(leader.path.size()):
+			var p: Vector2 = HexUtils.axial_to_pixel(leader.path[i], hex_size)
+			if i == leader.path.size() - 1:
+				draw_circle(p, 7.0, PATH_COLOR)
+				draw_arc(p, 13.0, 0.0, TAU, 24, PATH_COLOR, 3.0)
+			else:
+				draw_circle(p, 5.0, PATH_COLOR)

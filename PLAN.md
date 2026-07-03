@@ -65,35 +65,48 @@ Main (Node2D)
 - `effective_type` returns override while beam points, reverts on close.
 - Signals fire exactly once per transition, not per tick.
 
-### M4 — Visual hex grid + linker rendering (both actors)
-- Claude Code: `HexGridView` scene/script that reads `MapSim.tiles` and
-  renders colored hex tiles. `LinkerView` scene/script that shows beam
-  direction and lerps rotation.
-- Developer: run in editor, tune visual placement, report what looks off.
+### M4 — Visual hex grid + linker rendering (both actors) ✅ DONE
+- `HexGridView` (_draw-based tiles, beam rings, connector bridges),
+  `LinkerView` (hub + arrow, rotation lerp), debug HUD tick counter.
+- Verified by developer 2026-07-02: grid renders, linkers move, tile colors
+  respond to beams. CONNECTOR + TRANSMUTE effects landed here too (the old
+  M6 — they fell out of the sim core for free).
 
-### M5 — Leader movement (both actors)
-- Tap-to-move across hex tiles.
-- Movement cost varies by `effective_type(coord)`.
-- Claude Code: movement logic and pathfinding.
-- Developer: input handling, camera, visual feel.
+> **Re-plan 2026-07-02** (after first desktop playtest): validate the basic
+> mechanics — Leader, stamina movement, Units, combat — before any tuning or
+> design work. Tools come after movement (they complete the linker
+> interaction loop and need tap-selection, which movement input establishes).
+> `tick_len` raised 5s → 15s per playtest feedback.
 
-### M6 — CONNECTOR + TRANSMUTE effects (Claude Code + visual tuning)
-- CONNECTOR: beam makes an impassable edge passable while active.
-- TRANSMUTE: beam overrides host + neighbor tile type temporarily.
-- Both visible on map via `link_opened`/`link_closed` signals.
+### M5 — Leader + stamina movement (Claude Code builds, developer tests)
+- One Leader on the map, spawned at `LevelData.PLAYER_START`.
+- Tap a tile → Dijkstra path over passable tiles; Leader walks it in real
+  time (this is a real-time game, not turn-based).
+- Two speeds: **slow move is free; fast move drains stamina**; stamina
+  regens while not fast-moving; at 0 stamina fast reverts to slow.
+- Terrain drives traversal time through `effective_type` (re-checked every
+  edge crossing, never cached): plains 1×, forest 2×, mountain/water
+  impassable.
+- Linker interactions this unlocks: CONNECTOR beam = temporary bridge over
+  water (crossable edge, cost 1); TRANSMUTE's BOOST override can make even
+  a mountain briefly passable. A path is validated per-edge mid-walk — if a
+  bridge closes ahead of you, the Leader halts (`leader_blocked`).
+- Headless tests for pathfinding, timing, stamina, bridge close mid-walk.
 
-### M7 — Freeze + Reverse tools (both actors)
-- Tap a linker to select it; UI buttons to freeze or reverse.
-- Freeze sets `frozen = true`, linker skips ticks, beam holds.
-- Reverse flips `spin_dir`.
+### M6 — Freeze + Reverse tools (both actors)
+- Tap a linker to select it; HUD buttons freeze/unfreeze and reverse.
+- Sim API already exists (`set_frozen`, `reverse`); this is selection + UI.
 
-### M8 — Proximity combat (Claude Code + visual tuning)
-- Dumb AI enemies placed on the map.
-- Auto-combat when Leader/units are adjacent to enemies.
+### M7 — Units: collect + follow (Claude Code builds, developer tests)
+- Neutral Units placed on the map; Leader walks onto/adjacent to collect.
+- Collected Units trail the Leader (follow the path with spacing).
+
+### M8 — Proximity auto-combat (Claude Code builds, developer tests)
+- Dumb AI enemies on the map. Combat is automatic by adjacency.
 - `effective_type` affects combat (terrain bonuses/penalties).
 
-### M9 — Android deploy + playtest
-- Export to phone, play for 90 seconds.
+### M9 — Android deploy + 90-second playtest
+- Export to phone, play for ~90 seconds.
 - Answer the validation question: is the linker loop fun?
 - If yes: proceed to extraction/session layer.
 - If no: tune `tick_len`, linker density, effect magnitude before adding scope.
