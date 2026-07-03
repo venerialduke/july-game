@@ -1,4 +1,26 @@
-# Implementation Plan — v0 (Linker Prototype)
+# Implementation Plan
+
+## v1 — Depth & Danger (current)
+
+Design: `DESIGN_V1.md`. v0 verdict: mechanically sound, "OK" but not yet
+fun. v1 pillars: dangerous mobile enemies, big procedural map with
+camera/fog, cultivated units + resources, distinct tile/linker identities.
+Everything data-driven so design iteration is table edits.
+
+- **P1 — World** 🔨 IN PROGRESS: `MapGen` (seeded, knob table, radius ~10),
+  CameraController (follow/pan/zoom, tap-vs-drag), simple fog of war
+  (permanent reveal, sight radius 3, move orders need revealed targets).
+- **P2 — Enemies**: shared-mover refactor, data-driven archetypes
+  (DRIFTER/BRUTE/HUNTER), continuous movement, aggro/leash/repath timers,
+  telegraph signals.
+- **P3 — Cultivation**: resource nodes + collection, feed-to-mature stage
+  table, HUD resource count and feed action.
+- **P4+ — Design rounds**: iterate the tables (tiles, linkers, enemies,
+  cultivation) in short playtest loops.
+
+---
+
+# v0 (Linker Prototype) — COMPLETE
 
 Based on `NEW_DESIGN.md`. Goal: validate whether the spinning-linker loop is
 fun in ~90 seconds of play.

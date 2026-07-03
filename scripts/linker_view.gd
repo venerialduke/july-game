@@ -30,6 +30,7 @@ func setup(p_linker: LinkerData, p_hex_size: float) -> void:
 
 
 func _process(delta: float) -> void:
+	visible = MapSim.is_revealed(linker.host_coord)
 	for i: int in range(linker.links.size()):
 		_display_angles[i] = lerp_angle(
 				_display_angles[i], _true_angle(linker.links[i]), LERP_SPEED * delta)

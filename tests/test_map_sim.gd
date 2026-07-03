@@ -16,7 +16,6 @@ func run_tests() -> void:
 	test_connector_edge_open_close()
 	test_same_type_stacking_no_false_close()
 	test_off_map_beam_safe()
-	test_level_data_builds()
 
 
 # --- Tests -----------------------------------------------------------------
@@ -251,19 +250,3 @@ func test_off_map_beam_safe() -> void:
 	sim.free()
 
 
-func test_level_data_builds() -> void:
-	begin("LevelData populates a coherent v0 map")
-	var sim: Node = make_sim()
-	LevelData.apply(sim)
-	sim.initialize_open_set()
-	check_eq(sim.tiles.size(), 61, "radius-4 disc has 61 tiles")
-	check_eq(sim.linkers.size(), 4, "four linkers placed")
-	check(Terrain.is_passable(sim.effective_type(LevelData.PLAYER_START)),
-			"player start is passable")
-	for linker: LinkerData in sim.linkers.values():
-		check(sim.tiles.has(linker.host_coord), "linker %d hosted on a real tile" % linker.id)
-		check(Terrain.is_passable(sim.tiles[linker.host_coord].terrain),
-				"linker %d host is passable terrain" % linker.id)
-	sim.step_ticks(60)   # smoke: a minute of ticks without errors
-	check_eq(sim.tick_count, 60, "sim survives 60 ticks")
-	sim.free()

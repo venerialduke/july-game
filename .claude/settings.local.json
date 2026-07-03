@@ -20,7 +20,9 @@
       "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_map_sim.gd | Select-Object -Last 2; Write-Output \"CORE EXIT: $LASTEXITCODE\"; & C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_movement.gd; Write-Output \"MOVE EXIT: $LASTEXITCODE\")",
       "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --quit-after 30; Write-Output \"SCENE EXIT: $LASTEXITCODE\")",
       "PowerShell(Out-Null *)",
-      "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_movement.gd | Select-Object -Last 2; Write-Output \"MOVE EXIT: $LASTEXITCODE\")"
+      "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_movement.gd | Select-Object -Last 2; Write-Output \"MOVE EXIT: $LASTEXITCODE\")",
+      "PowerShell(git rm *)",
+      "PowerShell(& C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --import 2>&1 | Select-String -Pattern \"SCRIPT ERROR|Parse\" | Select-Object -First 8; foreach \\($suite in \"test_map_sim\", \"test_movement\", \"test_party_combat\", \"test_worldgen\"\\) { $out = & C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --script \"res://tests/$suite.gd\" 2>&1; $summary = $out | Select-String -Pattern \"PASSED|FAILED|FAIL \\\\[|SCRIPT ERROR\"; Write-Output \"${suite}: $\\($summary -join ' | '\\) [exit $LASTEXITCODE]\" }; & C:\\\\Godot\\\\Godot_v4.7-stable_win64_console.exe --headless --path . --quit-after 60; Write-Output \"SCENE EXIT: $LASTEXITCODE\")"
     ]
   }
 }

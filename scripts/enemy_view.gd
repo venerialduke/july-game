@@ -18,6 +18,7 @@ func setup(p_enemy: EnemyData, p_hex_size: float) -> void:
 
 
 func _process(_delta: float) -> void:
+	visible = MapSim.is_revealed(enemy.coord)
 	position = HexUtils.axial_to_pixel(enemy.coord, hex_size)
 	queue_redraw()
 

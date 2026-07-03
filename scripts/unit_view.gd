@@ -22,6 +22,7 @@ func setup(p_id: int, p_unit: UnitData, p_hex_size: float) -> void:
 
 
 func _process(delta: float) -> void:
+	visible = MapSim.is_revealed(unit.coord)
 	var target: Vector2
 	if unit.collected and MapSim.leader != null:
 		# Party units ride the Leader's tile: cluster in a ring around it,

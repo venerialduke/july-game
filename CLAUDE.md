@@ -66,35 +66,42 @@ Convention (adjust as the project grows):
 - Write small, focused commits with clear messages.
 - Use `--force-with-lease` (never bare `--force`) if a force-push is ever needed.
 
-## Architecture (v0 linker prototype)
+## Architecture (v1)
 
-Design in `NEW_DESIGN.md`, plan in `PLAN.md`. Central-sim pattern: the
+Design in `DESIGN_V1.md` (v0 history: `NEW_DESIGN.md`), plan in `PLAN.md`.
+Central-sim pattern: the
 `MapSim` autoload (`scripts/map_sim.gd`) owns ALL game state as plain data
 and advances it on a global tick clock. Visual nodes are dumb readers that
 query the sim and react to its signals; they hold no authoritative state and
 never compute hex geometry themselves.
 
-Scene tree:
+Scene tree (view nodes are spawned by `main.gd`, only the skeleton is in
+`Main.tscn`):
 
 ```
-Main (Node2D)                      — scripts/main.gd (glue: load level, spawn views)
- ├── HexGridView (Node2D)          — scripts/hex_grid_view.gd (_draw()s all tiles,
- │                                    beam rings, connector bridges from sim queries)
+Main (Node2D)                      — scripts/main.gd (glue: gen map, spawn views, route taps)
+ ├── HexGridView (Node2D)          — scripts/hex_grid_view.gd (_draw()s revealed tiles,
+ │                                    beam rings, bridges, path dots; fog-aware)
  ├── LinkerViews (Node2D)
  │    └── LinkerView × N           — scripts/linker_view.gd (hub + arrow, rotation lerp)
+ ├── LeaderView / UnitView / EnemyView — per-entity dumb readers
+ ├── CameraController (Camera2D)   — scripts/camera_controller.gd (follow/pan/zoom,
+ │                                    tap-vs-drag; emits tapped(world_pos))
  └── UILayer (CanvasLayer)
-      └── HUD (MarginContainer)    — scripts/hud.gd (tick counter, later tool buttons)
+      └── HUD (MarginContainer)    — scripts/hud.gd (tick wheel, stamina, tool panel)
 ```
 
 Autoload + data scripts:
 - `scripts/map_sim.gd` — `MapSim` autoload. Tick loop, beam resolution,
-  open-set diffing, `effective_type()`, freeze/reverse API. No `class_name`
-  (would collide with the autoload name).
+  open-set diffing, `effective_type()`, movement + stamina, party/slots,
+  combat, fog (`revealed{}`, `is_revealed`), freeze/reverse API. No
+  `class_name` (would collide with the autoload name).
+- `scripts/map_gen.gd` — `MapGen`: seeded procedural generation; all
+  tuning in the `KNOBS` table. Same seed = identical map (tested).
 - `scripts/terrain.gd` — `Terrain` enum + movement costs.
-- `scripts/hex_tile_data.gd` — `HexTileData` (NOT `TileData`: that name is a
-  Godot built-in).
-- `scripts/linker_data.gd` — `LinkerData` plain data + `Type` enum.
-- `scripts/level_data.gd` — hardcoded v0 map (terrain overrides, linkers).
+- `scripts/hex_tile_data.gd` — `HexTileData` (NOT `TileData`: built-in).
+- `scripts/linker_data.gd`, `leader_data.gd`, `unit_data.gd`,
+  `enemy_data.gd` — plain data classes.
 - `scripts/hex_utils.gd` — pure hex math (`class_name`, not autoload).
 
 Sim interface (the ONLY way downstream systems read linker state):
@@ -105,8 +112,9 @@ Never cache `effective_type` results — linker overrides are transient.
 
 ## Testing
 
-Headless deterministic tests in `tests/test_map_sim.gd`. Claude Code runs
-them directly (no developer needed):
+Headless deterministic suites in `tests/` (`test_map_sim`, `test_movement`,
+`test_party_combat`, `test_worldgen`), all extending `tests/test_base.gd`.
+Claude Code runs them directly (no developer needed):
 
 ```
 & C:\Godot\Godot_v4.7-stable_win64_console.exe --headless --path . --script res://tests/test_map_sim.gd

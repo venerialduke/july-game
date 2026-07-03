@@ -39,6 +39,8 @@ signal unit_died(id: int)
 signal enemy_died(id: int)
 ## The Leader's hp reached zero. Fired once.
 signal leader_died
+## New tiles came out of the fog (Array[Vector2i]).
+signal tiles_revealed(coords: Array)
 
 ## The terrain a TRANSMUTE beam temporarily applies to host + neighbor.
 ## Tuning knob — see NEW_DESIGN.md section 15.
@@ -60,6 +62,11 @@ var enemy_max_hp: float = 60.0
 var enemy_power: float = 10.0
 var boost_attack_mult: float = 2.0     ## Attacker standing on a BOOST tile.
 var party_slots: int = 3               ## Units the Leader can house; they ride its tile.
+
+# Fog of war (simple: permanent reveal as the Leader explores).
+var fog_enabled: bool = true
+var sight_radius: int = 3
+var revealed: Dictionary[Vector2i, bool] = {}
 
 var tiles: Dictionary[Vector2i, HexTileData] = {}
 var linkers: Dictionary[int, LinkerData] = {}
@@ -119,6 +126,7 @@ func reset() -> void:
 	party.clear()
 	tick_count = 0
 	accum = 0.0
+	revealed.clear()
 	_open_tiles.clear()
 	_open_edges.clear()
 	_next_linker_id = 0
@@ -218,7 +226,27 @@ func beam_target(linker: LinkerData, edge: int) -> Vector2i:
 func spawn_leader(coord: Vector2i) -> LeaderData:
 	leader = LeaderData.new(coord, stamina_max, leader_max_hp)
 	_leader_death_emitted = false
+	_reveal_around(coord)
 	return leader
+
+
+## True when the tile is out of the fog (or fog is off). Views draw only
+## revealed tiles; move orders may only target revealed tiles.
+func is_revealed(coord: Vector2i) -> bool:
+	return not fog_enabled or revealed.get(coord, false)
+
+
+func _reveal_around(center: Vector2i) -> void:
+	var newly: Array[Vector2i] = []
+	for q: int in range(-sight_radius, sight_radius + 1):
+		for r: int in range(maxi(-sight_radius, -q - sight_radius),
+				mini(sight_radius, -q + sight_radius) + 1):
+			var coord: Vector2i = center + Vector2i(q, r)
+			if tiles.has(coord) and not revealed.get(coord, false):
+				revealed[coord] = true
+				newly.append(coord)
+	if not newly.is_empty():
+		tiles_revealed.emit(newly)
 
 
 ## Sprint toggle: fast move drains stamina; slow move is free.
@@ -232,6 +260,8 @@ func set_fast(enabled: bool) -> void:
 func request_move(target: Vector2i) -> bool:
 	if leader == null or leader.hp <= 0.0 or not tiles.has(target):
 		return false
+	if not is_revealed(target):
+		return false   # can't order a move into the fog
 	var mid_edge: bool = leader.is_moving() and leader.edge_progress > 0.0
 	var start: Vector2i = leader.path[0] if mid_edge else leader.coord
 	var new_path: Array[Vector2i] = find_path(start, target)
@@ -343,6 +373,7 @@ func _advance_leader(dt: float) -> void:
 			leader.edge_progress = 0.0
 			_sync_party()
 			_collect_units_at(next)
+			_reveal_around(next)
 			leader_moved.emit(from, next)
 		else:
 			if fast:

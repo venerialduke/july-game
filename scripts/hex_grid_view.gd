@@ -28,6 +28,7 @@ func _ready() -> void:
 	MapSim.link_closed.connect(_on_link_changed)
 	MapSim.leader_path_changed.connect(queue_redraw)
 	MapSim.leader_moved.connect(_on_leader_moved)
+	MapSim.tiles_revealed.connect(_on_tiles_revealed)
 
 
 func _on_tick_advanced(_tick: int) -> void:
@@ -42,10 +43,16 @@ func _on_leader_moved(_from: Vector2i, _to: Vector2i) -> void:
 	queue_redraw()
 
 
+func _on_tiles_revealed(_coords: Array) -> void:
+	queue_redraw()
+
+
 func _draw() -> void:
 	var vertices: PackedVector2Array = HexUtils.get_hex_vertices(hex_size * 0.96)
 
 	for coord: Vector2i in MapSim.tiles:
+		if not MapSim.is_revealed(coord):
+			continue   # fog: unrevealed tiles are just background darkness
 		var center: Vector2 = HexUtils.axial_to_pixel(coord, hex_size)
 		var points := PackedVector2Array()
 		for v: Vector2 in vertices:
@@ -60,6 +67,8 @@ func _draw() -> void:
 		for coord: Vector2i in MapSim.open_coords(effect):
 			covered[coord] = true
 	for coord: Vector2i in covered:
+		if not MapSim.is_revealed(coord):
+			continue
 		var center: Vector2 = HexUtils.axial_to_pixel(coord, hex_size)
 		var ring := PackedVector2Array()
 		for v: Vector2 in HexUtils.get_hex_vertices(hex_size * 0.82):
@@ -67,8 +76,11 @@ func _draw() -> void:
 		ring.append(ring[0])
 		draw_polyline(ring, BEAM_TILE_COLOR, 3.0)
 
-	# Cyan bridge line across every open connector edge.
+	# Cyan bridge line across every open connector edge (revealed only).
 	for edge: Vector4i in MapSim.open_connector_edges():
+		if not MapSim.is_revealed(Vector2i(edge.x, edge.y)) \
+				or not MapSim.is_revealed(Vector2i(edge.z, edge.w)):
+			continue
 		var a: Vector2 = HexUtils.axial_to_pixel(Vector2i(edge.x, edge.y), hex_size)
 		var b: Vector2 = HexUtils.axial_to_pixel(Vector2i(edge.z, edge.w), hex_size)
 		draw_line(a, b, BRIDGE_COLOR, 10.0)

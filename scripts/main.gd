@@ -1,15 +1,19 @@
 extends Node2D
-## Glue: loads the level into MapSim, spawns view nodes, routes input.
-## Every tap is a move order. The HUD tool panel appears automatically
-## while the Leader stands on a linker's tile and acts on that linker.
-## Sprint = holding the "sprint" action (Space or Shift).
+## Glue: generates the map into MapSim, spawns view nodes, routes camera
+## taps into move orders. The HUD tool panel appears automatically while
+## the Leader stands on a linker's tile. Sprint = holding the "sprint"
+## action (Space/Shift) or the touch button.
 
 const HEX_SIZE: float = 48.0
+
+## -1 = random seed each run (printed for repro); set >= 0 to fix the map.
+const MAP_SEED: int = -1
 
 @onready var grid_view: Node2D = $HexGridView
 @onready var linker_views: Node2D = $LinkerViews
 @onready var hud: MarginContainer = $UILayer/HUD
 
+var camera: CameraController
 var _linker_view_by_id: Dictionary[int, LinkerView] = {}
 var _unit_view_by_id: Dictionary[int, UnitView] = {}
 var _enemy_view_by_id: Dictionary[int, EnemyView] = {}
@@ -19,11 +23,10 @@ var _selected_linker_id: int = -1
 func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color(0.08, 0.09, 0.12))
 
+	var seed_value: int = MAP_SEED if MAP_SEED >= 0 else randi()
+	print("MapGen seed: %d" % seed_value)
 	MapSim.reset()
-	LevelData.apply(MapSim)
-
-	# Center the map on screen (the disc is centered on axial origin).
-	position = get_viewport_rect().size / 2.0
+	MapGen.generate(MapSim, seed_value)
 
 	grid_view.hex_size = HEX_SIZE
 	for linker: LinkerData in MapSim.linkers.values():
@@ -32,7 +35,7 @@ func _ready() -> void:
 		linker_views.add_child(view)
 		_linker_view_by_id[linker.id] = view
 
-	MapSim.spawn_leader(LevelData.PLAYER_START)
+	MapSim.spawn_leader(MapGen.PLAYER_START)
 	var leader_view := LeaderView.new()
 	leader_view.hex_size = HEX_SIZE
 	add_child(leader_view)
@@ -47,6 +50,13 @@ func _ready() -> void:
 		enemy_view.setup(MapSim.enemies[id], HEX_SIZE)
 		add_child(enemy_view)
 		_enemy_view_by_id[id] = enemy_view
+
+	camera = CameraController.new()
+	camera.hex_size = HEX_SIZE
+	add_child(camera)
+	camera.make_current()
+	camera.snap_to_leader()
+	camera.tapped.connect(_on_world_tapped)
 
 	MapSim.unit_died.connect(_on_unit_died)
 	MapSim.enemy_died.connect(_on_enemy_died)
@@ -71,19 +81,16 @@ func _process(_delta: float) -> void:
 		hud.set_selected_linker(engaged)
 
 
-## Tap/click routing: every tap is a move order; after defeat, any tap
-## restarts. Touch arrives as emulated mouse input (project default), so
-## one handler covers desktop and Android.
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton \
-			and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		if MapSim.leader != null and MapSim.leader.hp <= 0.0:
-			# _ready() resets MapSim and rebuilds every view from scratch.
-			get_tree().reload_current_scene()
-			return
-		var coord: Vector2i = HexUtils.pixel_to_axial(to_local(event.position), HEX_SIZE)
-		if MapSim.tiles.has(coord):
-			MapSim.request_move(coord)
+## Camera taps: after defeat any tap restarts; otherwise it's a move order,
+## and an accepted order re-engages camera follow.
+func _on_world_tapped(world_pos: Vector2) -> void:
+	if MapSim.leader != null and MapSim.leader.hp <= 0.0:
+		# _ready() resets MapSim and rebuilds every view from scratch.
+		get_tree().reload_current_scene()
+		return
+	var coord: Vector2i = HexUtils.pixel_to_axial(world_pos, HEX_SIZE)
+	if MapSim.tiles.has(coord) and MapSim.request_move(coord):
+		camera.follow = true
 
 
 func _on_unit_died(id: int) -> void:
