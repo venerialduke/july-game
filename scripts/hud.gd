@@ -1,12 +1,12 @@
 extends MarginContainer
-## HUD: tick wheel + counter (top), linker tool panel and stamina/sprint
-## row (bottom), defeat banner (center). Non-interactive controls ignore
+## HUD: tick wheel + counter (top), linker tool panel and stamina row
+## (bottom), defeat banner (center). Non-interactive controls ignore
 ## mouse so taps fall through to the game layer (see LESSONS.md); the
-## Sprint/Freeze/Reverse buttons are the only controls that take input.
+## Freeze/Reverse buttons are the only controls that take input.
+## The tool panel is shown by Main while the Leader stands on a linker.
 
 var _tick_label: Label
 var _stamina_bar: ProgressBar
-var _sprint_button: Button
 var _tool_row: HBoxContainer
 var _freeze_button: Button
 var _reverse_button: Button
@@ -87,7 +87,7 @@ func _build_bottom_rows() -> void:
 			MapSim.reverse(_selected.id))
 	_tool_row.add_child(_reverse_button)
 
-	# Stamina + sprint row.
+	# Stamina row. Sprint is a held key (Space/Shift), polled by Main.
 	var stamina_row := HBoxContainer.new()
 	stamina_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stamina_row.add_theme_constant_override("separation", 16)
@@ -101,11 +101,12 @@ func _build_bottom_rows() -> void:
 	_stamina_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	stamina_row.add_child(_stamina_bar)
 
-	# Press-and-hold: sprint lasts exactly as long as the button is held.
-	_sprint_button = _make_button("Sprint")
-	_sprint_button.button_down.connect(func() -> void: MapSim.set_fast(true))
-	_sprint_button.button_up.connect(func() -> void: MapSim.set_fast(false))
-	stamina_row.add_child(_sprint_button)
+	var sprint_hint := Label.new()
+	sprint_hint.text = "hold SPACE/SHIFT\nto sprint"
+	sprint_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sprint_hint.add_theme_font_size_override("font_size", 16)
+	sprint_hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
+	stamina_row.add_child(sprint_hint)
 
 
 func _build_defeat_banner() -> void:

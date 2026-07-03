@@ -1,7 +1,8 @@
 extends Node2D
 ## Glue: loads the level into MapSim, spawns view nodes, routes input.
-## Tap a linker's tile to select it (tools in the HUD act on it); tap any
-## other tile to deselect and walk there. All game logic lives in MapSim.
+## Every tap is a move order. The HUD tool panel appears automatically
+## while the Leader stands on a linker's tile and acts on that linker.
+## Sprint = holding the "sprint" action (Space or Shift).
 
 const HEX_SIZE: float = 48.0
 
@@ -38,7 +39,7 @@ func _ready() -> void:
 
 	for id: int in MapSim.units:
 		var unit_view := UnitView.new()
-		unit_view.setup(MapSim.units[id], HEX_SIZE)
+		unit_view.setup(id, MapSim.units[id], HEX_SIZE)
 		add_child(unit_view)
 		_unit_view_by_id[id] = unit_view
 	for id: int in MapSim.enemies:
@@ -55,28 +56,29 @@ func _ready() -> void:
 	grid_view.queue_redraw()
 
 
-## Tap/click routing. Touch arrives as emulated mouse input (project
-## default), so one handler covers desktop and Android.
+func _process(_delta: float) -> void:
+	MapSim.set_fast(Input.is_action_pressed("sprint"))
+
+	# Tool panel targets the linker under the Leader's feet, if any.
+	var engaged: LinkerData = null
+	if MapSim.leader != null:
+		engaged = MapSim.linker_at(MapSim.leader.coord)
+	var engaged_id: int = engaged.id if engaged != null else -1
+	if engaged_id != _selected_linker_id:
+		_selected_linker_id = engaged_id
+		for linker_id: int in _linker_view_by_id:
+			_linker_view_by_id[linker_id].selected = linker_id == engaged_id
+		hud.set_selected_linker(engaged)
+
+
+## Tap/click routing: every tap is a move order. Touch arrives as emulated
+## mouse input (project default), so one handler covers desktop and Android.
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton \
 			and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var coord: Vector2i = HexUtils.pixel_to_axial(to_local(event.position), HEX_SIZE)
-		if not MapSim.tiles.has(coord):
-			return
-		var linker: LinkerData = MapSim.linker_at(coord)
-		if linker != null:
-			# Tap a linker to select it; tap it again to deselect.
-			_select_linker(-1 if linker.id == _selected_linker_id else linker.id)
-		else:
-			_select_linker(-1)
+		if MapSim.tiles.has(coord):
 			MapSim.request_move(coord)
-
-
-func _select_linker(id: int) -> void:
-	_selected_linker_id = id
-	for linker_id: int in _linker_view_by_id:
-		_linker_view_by_id[linker_id].selected = linker_id == id
-	hud.set_selected_linker(MapSim.linkers.get(id))
 
 
 func _on_unit_died(id: int) -> void:

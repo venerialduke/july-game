@@ -59,6 +59,7 @@ var unit_power: float = 8.0
 var enemy_max_hp: float = 60.0
 var enemy_power: float = 10.0
 var boost_attack_mult: float = 2.0     ## Attacker standing on a BOOST tile.
+var party_slots: int = 3               ## Units the Leader can house; they ride its tile.
 
 var tiles: Dictionary[Vector2i, HexTileData] = {}
 var linkers: Dictionary[int, LinkerData] = {}
@@ -340,7 +341,7 @@ func _advance_leader(dt: float) -> void:
 			leader.coord = next
 			leader.path.pop_front()
 			leader.edge_progress = 0.0
-			_shift_party(from)
+			_sync_party()
 			_collect_units_at(next)
 			leader_moved.emit(from, next)
 		else:
@@ -354,19 +355,18 @@ func _advance_leader(dt: float) -> void:
 		leader.stamina = minf(leader.stamina + stamina_regen_per_s * remaining, stamina_max)
 
 
-## Party units trail the Leader like a snake: each takes its predecessor's
-## previous tile, the head takes the tile the Leader just left.
-func _shift_party(leader_from: Vector2i) -> void:
-	var prev: Vector2i = leader_from
+## Party units ride in the Leader's tile (slot model): every collected
+## unit shares the Leader's coord and moves with it.
+func _sync_party() -> void:
 	for id: int in party:
-		var unit: UnitData = units[id]
-		var tmp: Vector2i = unit.coord
-		unit.coord = prev
-		prev = tmp
+		units[id].coord = leader.coord
 
 
+## Collect neutral units on this tile, up to the Leader's free slots.
 func _collect_units_at(coord: Vector2i) -> void:
 	for id: int in units:
+		if party.size() >= party_slots:
+			return
 		var unit: UnitData = units[id]
 		if not unit.collected and unit.coord == coord:
 			unit.collected = true

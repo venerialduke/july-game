@@ -6,7 +6,8 @@ extends TestBase
 
 func run_tests() -> void:
 	test_collect_on_walkover()
-	test_party_trails_leader()
+	test_party_rides_in_leader_tile()
+	test_party_slots_limit()
 	test_combat_kills_adjacent_enemy()
 	test_no_combat_at_distance()
 	test_units_tank_before_leader()
@@ -33,8 +34,8 @@ func test_collect_on_walkover() -> void:
 	sim.free()
 
 
-func test_party_trails_leader() -> void:
-	begin("party follows the leader's trail in collection order")
+func test_party_rides_in_leader_tile() -> void:
+	begin("party units ride in the leader's tile (slot model)")
 	var sim: Node = make_disc_sim(3)
 	sim.spawn_leader(Vector2i.ZERO)
 	var first: int = sim.add_unit(Vector2i(1, 0))
@@ -44,8 +45,25 @@ func test_party_trails_leader() -> void:
 	sim.advance(4.5)   # collects both en route
 	check_eq(sim.leader.coord, Vector2i(3, 0), "leader arrived")
 	check_eq(sim.party, [first, second], "party in collection order")
-	check_eq(sim.units[first].coord, Vector2i(2, 0), "first unit right behind leader")
-	check_eq(sim.units[second].coord, Vector2i(1, 0), "second unit behind the first")
+	check_eq(sim.units[first].coord, Vector2i(3, 0), "first unit rides the leader tile")
+	check_eq(sim.units[second].coord, Vector2i(3, 0), "second unit rides the leader tile")
+	sim.free()
+
+
+func test_party_slots_limit() -> void:
+	begin("collection stops when all party slots are full")
+	var sim: Node = make_disc_sim(3)
+	sim.party_slots = 2
+	sim.spawn_leader(Vector2i.ZERO)
+	sim.add_unit(Vector2i(1, 0))
+	sim.add_unit(Vector2i(2, 0))
+	var third: int = sim.add_unit(Vector2i(3, 0))
+
+	sim.request_move(Vector2i(3, 0))
+	sim.advance(4.5)
+	check_eq(sim.party.size(), 2, "only two slots filled")
+	check(not sim.units[third].collected, "third unit left neutral on a full party")
+	check_eq(sim.units[third].coord, Vector2i(3, 0), "uncollected unit stays put")
 	sim.free()
 
 
@@ -83,13 +101,14 @@ func test_no_combat_at_distance() -> void:
 
 
 func test_units_tank_before_leader() -> void:
-	begin("an adjacent unit tanks; leader untouched until the unit dies")
+	begin("the party unit tanks; leader takes damage only after it dies")
 	var sim: Node = make_disc_sim(3)
-	sim.spawn_leader(Vector2i.ZERO)   # distance 2 from the enemy: out of combat
-	var unit_id: int = sim.add_unit(Vector2i(1, 0))
+	sim.enemy_max_hp = 200.0   # tough enough to outlive the tanking unit
+	sim.spawn_leader(Vector2i.ZERO)
+	var unit_id: int = sim.add_unit(Vector2i.ZERO)   # rides with the leader
 	sim.units[unit_id].collected = true
 	sim.party.append(unit_id)
-	var enemy_id: int = sim.add_enemy(Vector2i(2, 0))
+	var enemy_id: int = sim.add_enemy(Vector2i(1, 0))
 
 	var unit_deaths: Array = []
 	sim.unit_died.connect(func(id: int) -> void: unit_deaths.append(id))
@@ -98,10 +117,11 @@ func test_units_tank_before_leader() -> void:
 		sim.advance(1.0)   # unit dies at t=4: 40 hp / 10 dps
 	check_eq(unit_deaths, [unit_id], "unit died tanking")
 	check(sim.party.is_empty(), "dead unit removed from party")
-	check_approx(sim.enemies[enemy_id].hp, 28.0, "unit dealt 8/s for 4s before dying")
-	check_approx(sim.leader.hp, sim.leader_max_hp, "leader never touched at distance 2")
-	sim.advance(3.0)
-	check_approx(sim.enemies[enemy_id].hp, 28.0, "combat over once no one is adjacent")
+	check_approx(sim.enemies[enemy_id].hp, 120.0, "unit+leader dealt 20/s for 4s")
+	check_approx(sim.leader.hp, sim.leader_max_hp, "leader untouched while the unit tanked")
+	sim.advance(2.0)
+	check_approx(sim.enemies[enemy_id].hp, 96.0, "leader fights on alone at 12/s")
+	check_approx(sim.leader.hp, 80.0, "leader tanks once the unit is gone")
 	sim.free()
 
 

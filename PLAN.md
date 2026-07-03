@@ -80,9 +80,11 @@ Main (Node2D)
 
 ### M5 — Leader + stamina movement ✅ DONE
 Verified by developer 2026-07-02 ("working, feels ok"). Playtest
-adjustments applied: sprint is press-and-hold (not toggle), stamina regens
-only while the Leader is stopped, and a radial tick wheel in the HUD shows
-time creeping toward the next tick.
+adjustments applied: stamina regens only while the Leader is stopped, and
+a radial tick wheel in the HUD shows time creeping toward the next tick.
+Sprint input evolved across playtests: toggle → hold-button → held key
+(Space/Shift via the "sprint" input action; polled by Main). A touch
+control will be needed again for the Android build (M9).
 - One Leader on the map, spawned at `LevelData.PLAYER_START`.
 - Tap a tile → Dijkstra path over passable tiles; Leader walks it in real
   time (this is a real-time game, not turn-based).
@@ -98,13 +100,17 @@ time creeping toward the next tick.
 - Headless tests for pathfinding, timing, stamina, bridge close mid-walk.
 
 ### M6 — Freeze + Reverse tools 🔨 BUILT, awaiting playtest
-- Tap a linker's tile to select (white ring); tap again to deselect; tap
-  elsewhere to deselect and move. HUD Freeze/Unfreeze + Reverse buttons
-  appear while selected. No range limit on tools yet — open design knob.
+- Playtest 3 rework: no tap-selection. Every tap is a move order; the HUD
+  Freeze/Unfreeze + Reverse panel appears automatically while the Leader
+  stands on a linker's tile (white ring marks the engaged linker). Tools
+  therefore inherently require being at the linker.
 
 ### M7 — Units: collect + follow 🔨 BUILT, awaiting playtest
 - Neutral units (gray) on the map; Leader walks onto one to collect it.
-- Party trails the Leader snake-style in collection order.
+- Playtest 3 rework: slot model, not snake-trail. The Leader has
+  `party_slots` (default 3); collected units ride in the Leader's tile
+  (drawn as a ring around it) and move as one. Collection stops when
+  slots are full.
 
 ### M8 — Proximity auto-combat 🔨 BUILT, awaiting playtest
 - Stationary dumb enemies (red diamonds). Continuous automatic combat on

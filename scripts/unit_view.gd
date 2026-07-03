@@ -9,18 +9,29 @@ const PARTY_COLOR := Color(0.55, 0.9, 0.55)
 const OUTLINE_COLOR := Color(0.12, 0.13, 0.16)
 const HP_COLOR := Color(0.4, 1.0, 0.4)
 
+var id: int = -1
 var unit: UnitData
 var hex_size: float = 48.0
 
 
-func setup(p_unit: UnitData, p_hex_size: float) -> void:
+func setup(p_id: int, p_unit: UnitData, p_hex_size: float) -> void:
+	id = p_id
 	unit = p_unit
 	hex_size = p_hex_size
 	position = HexUtils.axial_to_pixel(unit.coord, hex_size)
 
 
 func _process(delta: float) -> void:
-	var target: Vector2 = HexUtils.axial_to_pixel(unit.coord, hex_size)
+	var target: Vector2
+	if unit.collected and MapSim.leader != null:
+		# Party units ride the Leader's tile: cluster in a ring around it,
+		# each in a stable slot position.
+		var slot: int = MapSim.party.find(id)
+		var angle: float = TAU * float(maxi(slot, 0)) / float(maxi(MapSim.party_slots, 1)) - PI / 2.0
+		target = LeaderView.leader_pixel(MapSim.leader, hex_size) \
+				+ Vector2.from_angle(angle) * hex_size * 0.34
+	else:
+		target = HexUtils.axial_to_pixel(unit.coord, hex_size)
 	position = position.lerp(target, minf(10.0 * delta, 1.0))
 	queue_redraw()
 

@@ -10,18 +10,23 @@ const OUTLINE_COLOR := Color(0.12, 0.13, 0.16)
 var hex_size: float = 48.0
 
 
+## The Leader's interpolated pixel position (between tiles while moving).
+## Static so UnitView can cluster party units around the same point.
+static func leader_pixel(leader: LeaderData, p_hex_size: float) -> Vector2:
+	var from: Vector2 = HexUtils.axial_to_pixel(leader.coord, p_hex_size)
+	if leader.is_moving():
+		var to: Vector2 = HexUtils.axial_to_pixel(leader.path[0], p_hex_size)
+		return from.lerp(to, leader.edge_progress)
+	return from
+
+
 func _process(_delta: float) -> void:
 	var leader: LeaderData = MapSim.leader
 	if leader == null:
 		visible = false
 		return
 	visible = true
-	var from: Vector2 = HexUtils.axial_to_pixel(leader.coord, hex_size)
-	if leader.is_moving():
-		var to: Vector2 = HexUtils.axial_to_pixel(leader.path[0], hex_size)
-		position = from.lerp(to, leader.edge_progress)
-	else:
-		position = from
+	position = leader_pixel(leader, hex_size)
 	queue_redraw()
 
 
