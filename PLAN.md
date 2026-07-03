@@ -7,12 +7,18 @@ fun. v1 pillars: dangerous mobile enemies, big procedural map with
 camera/fog, cultivated units + resources, distinct tile/linker identities.
 Everything data-driven so design iteration is table edits.
 
-- **P1 — World** 🔨 IN PROGRESS: `MapGen` (seeded, knob table, radius ~10),
-  CameraController (follow/pan/zoom, tap-vs-drag), simple fog of war
-  (permanent reveal, sight radius 3, move orders need revealed targets).
-- **P2 — Enemies**: shared-mover refactor, data-driven archetypes
-  (DRIFTER/BRUTE/HUNTER), continuous movement, aggro/leash/repath timers,
-  telegraph signals.
+- **P1 — World** ✅ DONE (verified 2026-07-02): `MapGen` (seeded, knob
+  table, radius 10), CameraController (follow/pan/zoom verified good),
+  simple fog of war (works as basic version). Map variety knobs bumped
+  after "kinda boring" feedback: more/larger lakes, ridges, forests, and
+  compact blob growth instead of snaky walks.
+- **P2 — Enemies** 🔨 BUILT, awaiting playtest: `EnemyTypes` archetype
+  table (drifter 0.4x wanderer / brute 0.6x territorial 130hp / hunter
+  1.15x chaser — faster than your walk, slower than your sprint).
+  Continuous movement through the same traversal rules as the Leader
+  (bridges included), aggro/leash/repath on seeded deterministic timers,
+  `enemy_aggroed` telegraph (pulsing ring), per-enemy combat stats.
+  Legacy `add_enemy(coord)` without archetype = stationary dummy.
 - **P3 — Cultivation**: resource nodes + collection, feed-to-mature stage
   table, HUD resource count and feed action.
 - **P4+ — Design rounds**: iterate the tables (tiles, linkers, enemies,

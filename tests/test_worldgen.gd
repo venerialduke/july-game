@@ -74,7 +74,14 @@ func test_map_structure() -> void:
 			"full hex disc tile count")
 	check_eq(sim.linkers.size(), MapGen.KNOBS["linker_count"], "all linkers placed")
 	check_eq(sim.units.size(), MapGen.KNOBS["unit_count"], "all units placed")
-	check_eq(sim.enemies.size(), MapGen.KNOBS["enemy_count"], "all enemies placed")
+	var expected_enemies: int = MapGen.KNOBS["drifter_count"] \
+			+ MapGen.KNOBS["brute_count"] + MapGen.KNOBS["hunter_count"]
+	check_eq(sim.enemies.size(), expected_enemies, "full enemy roster placed")
+	var archetype_counts: Dictionary[StringName, int] = {}
+	for enemy: EnemyData in sim.enemies.values():
+		archetype_counts[enemy.archetype] = archetype_counts.get(enemy.archetype, 0) + 1
+	check_eq(archetype_counts.get(&"hunter", 0), MapGen.KNOBS["hunter_count"],
+			"hunters placed with archetype applied")
 	for coord: Vector2i in sim.tiles:
 		if HexUtils.axial_distance(coord, MapGen.PLAYER_START) <= MapGen.KNOBS["safe_radius"]:
 			check_eq(sim.tiles[coord].terrain, Terrain.Type.PLAINS,

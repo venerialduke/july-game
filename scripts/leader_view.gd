@@ -10,13 +10,13 @@ const OUTLINE_COLOR := Color(0.12, 0.13, 0.16)
 var hex_size: float = 48.0
 
 
-## The Leader's interpolated pixel position (between tiles while moving).
-## Static so UnitView can cluster party units around the same point.
-static func leader_pixel(leader: LeaderData, p_hex_size: float) -> Vector2:
-	var from: Vector2 = HexUtils.axial_to_pixel(leader.coord, p_hex_size)
-	if leader.is_moving():
-		var to: Vector2 = HexUtils.axial_to_pixel(leader.path[0], p_hex_size)
-		return from.lerp(to, leader.edge_progress)
+## Interpolated pixel position for anything with coord/path/edge_progress
+## (LeaderData, EnemyData). Static + duck-typed so every view shares it.
+static func mover_pixel(mover: RefCounted, p_hex_size: float) -> Vector2:
+	var from: Vector2 = HexUtils.axial_to_pixel(mover.coord, p_hex_size)
+	if mover.is_moving():
+		var to: Vector2 = HexUtils.axial_to_pixel(mover.path[0], p_hex_size)
+		return from.lerp(to, mover.edge_progress)
 	return from
 
 
@@ -26,7 +26,7 @@ func _process(_delta: float) -> void:
 		visible = false
 		return
 	visible = true
-	position = leader_pixel(leader, hex_size)
+	position = mover_pixel(leader, hex_size)
 	queue_redraw()
 
 

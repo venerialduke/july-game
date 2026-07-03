@@ -29,7 +29,7 @@ func _process(delta: float) -> void:
 		# each in a stable slot position.
 		var slot: int = MapSim.party.find(id)
 		var angle: float = TAU * float(maxi(slot, 0)) / float(maxi(MapSim.party_slots, 1)) - PI / 2.0
-		target = LeaderView.leader_pixel(MapSim.leader, hex_size) \
+		target = LeaderView.mover_pixel(MapSim.leader, hex_size) \
 				+ Vector2.from_angle(angle) * hex_size * 0.34
 	else:
 		target = HexUtils.axial_to_pixel(unit.coord, hex_size)

@@ -42,6 +42,16 @@ func make_disc_sim(radius: int) -> Node:
 	return sim
 
 
+## Advance in frame-sized steps. Use whenever AI decisions or combat
+## overlap movement: one big advance() lumps a whole dt of damage onto an
+## adjacency established mid-call, and AI timers only re-evaluate per call.
+func advance_time(sim: Node, seconds: float, step: float = 0.1) -> void:
+	var t: float = 0.0
+	while t < seconds - 0.0001:
+		sim.advance(step)
+		t += step
+
+
 func begin(test_name: String) -> void:
 	_current_test = test_name
 	print("- " + test_name)

@@ -41,6 +41,8 @@ signal enemy_died(id: int)
 signal leader_died
 ## New tiles came out of the fog (Array[Vector2i]).
 signal tiles_revealed(coords: Array)
+## An enemy acquired the Leader and started chasing. For telegraphs.
+signal enemy_aggroed(id: int)
 
 ## The terrain a TRANSMUTE beam temporarily applies to host + neighbor.
 ## Tuning knob — see NEW_DESIGN.md section 15.
@@ -67,6 +69,10 @@ var party_slots: int = 3               ## Units the Leader can house; they ride 
 var fog_enabled: bool = true
 var sight_radius: int = 3
 var revealed: Dictionary[Vector2i, bool] = {}
+
+## Sim-side RNG (enemy wander targets). Seeded by MapGen.generate so the
+## whole sim stays deterministic: same seed + same dt sequence = same run.
+var rng := RandomNumberGenerator.new()
 
 var tiles: Dictionary[Vector2i, HexTileData] = {}
 var linkers: Dictionary[int, LinkerData] = {}
@@ -102,6 +108,7 @@ func advance(dt: float) -> void:
 		accum -= tick_len
 		_tick()
 	_advance_leader(dt)
+	_advance_enemies(dt)
 	_advance_combat(dt)
 
 
@@ -155,10 +162,14 @@ func add_unit(coord: Vector2i) -> int:
 	return id
 
 
-func add_enemy(coord: Vector2i) -> int:
+## Empty archetype = legacy stationary dummy using the sim knobs.
+func add_enemy(coord: Vector2i, archetype: StringName = &"") -> int:
 	var id: int = _next_enemy_id
 	_next_enemy_id += 1
-	enemies[id] = EnemyData.new(coord, enemy_max_hp)
+	var enemy := EnemyData.new(coord, enemy_max_hp)
+	enemy.power = enemy_power
+	enemy.apply_archetype(archetype)
+	enemies[id] = enemy
 	return id
 
 
@@ -341,9 +352,9 @@ func _entry_cost(from: Vector2i, to: Vector2i) -> float:
 	return 1.0 if is_connector_open(from, to) else INF
 
 
-func _traversal_time(from: Vector2i, to: Vector2i, fast: bool) -> float:
-	var t: float = step_time_base * _entry_cost(from, to)
-	return t / fast_multiplier if fast else t
+## Seconds to cross the from->to edge at `speed_mult` (1.0 = Leader walk).
+func _traversal_time(from: Vector2i, to: Vector2i, speed_mult: float) -> float:
+	return step_time_base * _entry_cost(from, to) / speed_mult
 
 
 func _advance_leader(dt: float) -> void:
@@ -361,7 +372,8 @@ func _advance_leader(dt: float) -> void:
 			leader_blocked.emit(next)
 			break
 		var fast: bool = leader.fast_mode and leader.stamina > 0.0
-		var t: float = _traversal_time(leader.coord, next, fast)
+		var t: float = _traversal_time(leader.coord, next,
+				fast_multiplier if fast else 1.0)
 		var time_to_finish: float = (1.0 - leader.edge_progress) * t
 		if remaining >= time_to_finish:
 			if fast:
@@ -409,6 +421,122 @@ func _drain_stamina(seconds: float) -> void:
 	leader.stamina = maxf(leader.stamina - stamina_drain_per_s * seconds, 0.0)
 
 
+# --- Enemy AI + movement ----------------------------------------------------
+
+## Enemies move continuously through the same traversal rules as the
+## Leader (effective_type, connector bridges). Decisions run on per-enemy
+## timers; wander targets come from the seeded sim RNG, so runs stay
+## deterministic. Archetype behavior:
+##   drifter — wanders, never aggros.
+##   hunter  — chases the Leader within aggro_radius, gives up beyond
+##             leash_range (distance to Leader), re-paths on a timer.
+##   brute   — patrols near home; chases inside aggro_radius but abandons
+##             the chase beyond leash_range FROM HOME and walks back.
+func _advance_enemies(dt: float) -> void:
+	for id: int in enemies:
+		var enemy: EnemyData = enemies[id]
+		if enemy.speed_mult <= 0.0:
+			continue   # legacy stationary dummy
+		enemy.repath_timer -= dt
+		enemy.wander_timer -= dt
+		_update_enemy_ai(id, enemy)
+		_advance_enemy_path(enemy, dt)
+
+
+func _update_enemy_ai(id: int, enemy: EnemyData) -> void:
+	var leader_alive: bool = leader != null and leader.hp > 0.0
+	var dist_to_leader: int = HexUtils.axial_distance(enemy.coord, leader.coord) \
+			if leader_alive else 9999
+
+	# Acquire / give up. A brute outside its territory cannot re-acquire —
+	# otherwise it oscillates at the leash edge forever instead of going home.
+	if enemy.state != EnemyData.AIState.CHASE:
+		var can_aggro: bool = leader_alive and enemy.aggro_radius > 0 \
+				and dist_to_leader <= enemy.aggro_radius
+		if can_aggro and enemy.archetype == &"brute":
+			can_aggro = HexUtils.axial_distance(enemy.coord, enemy.home) <= enemy.leash_range
+		if can_aggro:
+			enemy.state = EnemyData.AIState.CHASE
+			enemy.repath_timer = 0.0
+			enemy_aggroed.emit(id)
+	else:
+		var give_up: bool = not leader_alive
+		if enemy.archetype == &"brute":
+			give_up = give_up or HexUtils.axial_distance(enemy.coord, enemy.home) > enemy.leash_range
+		else:
+			give_up = give_up or dist_to_leader > enemy.leash_range
+		if give_up:
+			enemy.path.clear()
+			enemy.edge_progress = 0.0
+			enemy.state = EnemyData.AIState.RETURN if enemy.archetype == &"brute" \
+					else EnemyData.AIState.WANDER
+
+	match enemy.state:
+		EnemyData.AIState.CHASE:
+			if dist_to_leader <= 1:
+				# In combat range: stand and fight.
+				enemy.path.clear()
+				enemy.edge_progress = 0.0
+			elif enemy.repath_timer <= 0.0:
+				enemy.repath_timer = enemy.repath_interval
+				if enemy.is_moving() and enemy.edge_progress > 0.0:
+					# Keep the edge being crossed; re-plan from its far end.
+					var kept: Array[Vector2i] = [enemy.path[0]]
+					kept.append_array(find_path(enemy.path[0], leader.coord))
+					enemy.path = kept
+				else:
+					enemy.path = find_path(enemy.coord, leader.coord)
+		EnemyData.AIState.RETURN:
+			if enemy.coord == enemy.home and not enemy.is_moving():
+				enemy.state = EnemyData.AIState.WANDER
+			elif not enemy.is_moving():
+				enemy.path = find_path(enemy.coord, enemy.home)
+				if enemy.path.is_empty():
+					enemy.state = EnemyData.AIState.WANDER   # home unreachable
+		EnemyData.AIState.WANDER:
+			if not enemy.is_moving() and enemy.wander_timer <= 0.0:
+				enemy.wander_timer = enemy.wander_interval
+				var anchor: Vector2i = enemy.home if enemy.archetype == &"brute" \
+						else enemy.coord
+				var target: Vector2i = _random_tile_near(anchor, enemy.wander_radius)
+				if target != enemy.coord:
+					enemy.path = find_path(enemy.coord, target)
+
+
+## A random passable tile within `radius` of `anchor` (seeded RNG).
+func _random_tile_near(anchor: Vector2i, radius: int) -> Vector2i:
+	var candidates: Array[Vector2i] = []
+	for q: int in range(-radius, radius + 1):
+		for r: int in range(maxi(-radius, -q - radius), mini(radius, -q + radius) + 1):
+			var coord: Vector2i = anchor + Vector2i(q, r)
+			if tiles.has(coord) and Terrain.is_passable(tiles[coord].terrain):
+				candidates.append(coord)
+	if candidates.is_empty():
+		return anchor
+	return candidates[rng.randi_range(0, candidates.size() - 1)]
+
+
+## Same edge-traversal loop as the Leader, minus stamina/party/fog.
+func _advance_enemy_path(enemy: EnemyData, dt: float) -> void:
+	var remaining: float = dt
+	while remaining > 0.0 and enemy.is_moving():
+		var next: Vector2i = enemy.path[0]
+		if not can_traverse(enemy.coord, next):
+			enemy.path.clear()
+			enemy.edge_progress = 0.0
+			break   # bridge closed / terrain reverted; AI re-decides next frame
+		var t: float = _traversal_time(enemy.coord, next, enemy.speed_mult)
+		var time_to_finish: float = (1.0 - enemy.edge_progress) * t
+		if remaining >= time_to_finish:
+			remaining -= time_to_finish
+			enemy.coord = next
+			enemy.path.pop_front()
+			enemy.edge_progress = 0.0
+		else:
+			enemy.edge_progress += remaining / t
+			remaining = 0.0
+
+
 # --- Combat (automatic, proximity-based, continuous) -----------------------
 
 ## Every adjacent party member (units and Leader) attacks each enemy; the
@@ -434,7 +562,7 @@ func _advance_combat(dt: float) -> void:
 		if target == null:
 			continue   # nobody engaged this enemy
 		enemy.hp -= attack_power * dt
-		target.hp -= enemy_power * dt
+		target.hp -= enemy.power * dt
 	_resolve_deaths()
 
 

@@ -30,14 +30,14 @@ var _multi_touched: bool = false   # a pinch happened; suppress the release-tap
 
 func _process(delta: float) -> void:
 	if follow and MapSim.leader != null:
-		var target: Vector2 = LeaderView.leader_pixel(MapSim.leader, hex_size)
+		var target: Vector2 = LeaderView.mover_pixel(MapSim.leader, hex_size)
 		position = position.lerp(target, minf(FOLLOW_LERP * delta, 1.0))
 
 
 func snap_to_leader() -> void:
 	follow = true
 	if MapSim.leader != null:
-		position = LeaderView.leader_pixel(MapSim.leader, hex_size)
+		position = LeaderView.mover_pixel(MapSim.leader, hex_size)
 
 
 func _unhandled_input(event: InputEvent) -> void:

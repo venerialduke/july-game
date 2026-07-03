@@ -9,21 +9,23 @@ const PLAYER_START := Vector2i.ZERO
 const KNOBS: Dictionary[String, int] = {
 	"radius": 10,           # hex disc radius (10 -> 331 tiles)
 	"safe_radius": 2,       # plains guaranteed around spawn
-	"lake_count": 4,
-	"lake_size_min": 3,
-	"lake_size_max": 7,
-	"ridge_count": 3,
-	"ridge_len_min": 4,
-	"ridge_len_max": 8,
-	"forest_count": 8,
-	"forest_size_min": 2,
-	"forest_size_max": 6,
+	"lake_count": 6,
+	"lake_size_min": 4,
+	"lake_size_max": 9,
+	"ridge_count": 5,
+	"ridge_len_min": 5,
+	"ridge_len_max": 10,
+	"forest_count": 14,
+	"forest_size_min": 3,
+	"forest_size_max": 7,
 	"linker_count": 10,
 	"linker_spacing": 3,    # min hex distance between linkers
 	"linker_period_max": 3,
 	"unit_count": 6,
 	"unit_min_dist": 2,     # from spawn
-	"enemy_count": 5,
+	"drifter_count": 3,
+	"brute_count": 3,
+	"hunter_count": 3,
 	"enemy_min_dist": 5,    # from spawn
 }
 
@@ -35,6 +37,7 @@ static func generate(sim: Node, seed_value: int, overrides: Dictionary = {}) -> 
 	knobs.merge(overrides, true)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
+	sim.rng.seed = seed_value   # enemy wander RNG: whole run reproducible
 
 	_place_disc(sim, knobs["radius"])
 	for i: int in range(knobs["lake_count"]):
@@ -61,17 +64,21 @@ static func _place_disc(sim: Node, radius: int) -> void:
 			sim.add_tile(Vector2i(q, r), Terrain.Type.PLAINS)
 
 
-## Grow a connected blob of `terrain` by random-walking from a seed tile.
+## Grow a compact connected blob of `terrain`: each new tile extends a
+## random tile already in the blob, so lakes read as lakes, not snakes.
 static func _grow_blob(sim: Node, rng: RandomNumberGenerator, knobs: Dictionary,
 		terrain: Terrain.Type, size: int) -> void:
 	var center: Vector2i = _random_far_tile(sim, rng, knobs["safe_radius"] + 2)
-	var current: Vector2i = center
-	for i: int in range(size):
-		if sim.tiles.has(current):
-			sim.tiles[current].terrain = terrain
-		var step: Vector2i = HexUtils.DIRECTIONS[rng.randi_range(0, 5)]
-		var next: Vector2i = current + step
-		current = next if sim.tiles.has(next) else center
+	sim.tiles[center].terrain = terrain
+	var blob: Array[Vector2i] = [center]
+	var attempts: int = size * 4
+	while blob.size() < size and attempts > 0:
+		attempts -= 1
+		var base: Vector2i = blob[rng.randi_range(0, blob.size() - 1)]
+		var next: Vector2i = base + HexUtils.DIRECTIONS[rng.randi_range(0, 5)]
+		if sim.tiles.has(next) and not blob.has(next):
+			sim.tiles[next].terrain = terrain
+			blob.append(next)
 
 
 ## Carve a mountain ridge: a mostly-straight walk with occasional kinks.
@@ -129,10 +136,17 @@ static func _place_units(sim: Node, rng: RandomNumberGenerator, knobs: Dictionar
 
 static func _place_enemies(sim: Node, rng: RandomNumberGenerator, knobs: Dictionary,
 		reachable: Array[Vector2i]) -> void:
+	var roster: Array[StringName] = []
+	for i: int in range(knobs["drifter_count"]):
+		roster.append(&"drifter")
+	for i: int in range(knobs["brute_count"]):
+		roster.append(&"brute")
+	for i: int in range(knobs["hunter_count"]):
+		roster.append(&"hunter")
 	var spots: Array[Vector2i] = _pick_spots(sim, rng, reachable,
-			knobs["enemy_count"], knobs["enemy_min_dist"])
-	for coord: Vector2i in spots:
-		sim.add_enemy(coord)
+			roster.size(), knobs["enemy_min_dist"])
+	for i: int in range(spots.size()):
+		sim.add_enemy(spots[i], roster[i])
 
 
 ## Pick `count` distinct reachable tiles at least `min_dist` from spawn,
